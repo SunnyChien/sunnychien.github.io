@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>设置 - 儿童计划表</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="app-caption">设置</p>
+        <h1>每日活动与积分配置</h1>
+      </div>
+      <a class="btn btn-secondary" href="index.html">返回计划页</a>
+    </header>
+
+    <section class="panel panel-settings" aria-labelledby="settings-page-title">
+      <div class="panel-header">
+        <h2 id="settings-page-title">活动与积分设置</h2>
+        <p>设定每周目标，并编辑每日活动名、分值和是否可用。</p>
+      </div>
+      <div class="settings-grid">
+        <div class="setting-item">
+          <label for="weekly-goal">每周目标积分</label>
+          <input id="weekly-goal" type="number" min="10" step="10" />
+        </div>
+        <div class="setting-item">
+          <label for="reward-threshold">每日奖励阈值</label>
+          <input id="reward-threshold" type="number" min="1" step="1" />
+        </div>
+        <div class="setting-item">
+          <label for="weekly-grand-label">本周大奖励名称</label>
+          <input id="weekly-grand-label" type="text" placeholder="例如：周末家庭出游" />
+        </div>
+        <div class="setting-item">
+          <label for="weekly-grand-enabled">启用本周大奖励</label>
+          <input id="weekly-grand-enabled" type="checkbox" />
+        </div>
+      </div>
+
+      <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
+        <div>
+          <h3>活动列表</h3>
+          <p>可编辑名称、设置分值、并开启或关闭每日显示。</p>
+        </div>
+        <button class="btn btn-secondary btn-add" type="button" id="add-activity">新增活动</button>
+      </div>
+      <div class="activity-options" id="activities-list"></div>
+
+      <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
+        <div>
+          <h3>奖励设置</h3>
+          <p>可设置奖励名称、每周可用次数，并启用或禁用。</p>
+        </div>
+        <button class="btn btn-secondary btn-add" type="button" id="add-reward">新增奖励</button>
+      </div>
+      <div class="activity-options" id="rewards-list"></div>
+      
+      <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
+        <div>
+          <h3>额外加分规则</h3>
+          <p>设置规则：完成 x 次某项活动，则本周额外获得 y 分（可编辑）。</p>
+        </div>
+        <button class="btn btn-secondary btn-add" type="button" id="add-extra-bonus">新增规则</button>
+      </div>
+      <div class="activity-options" id="extra-bonuses-list"></div>
+      <div class="message-box" id="settings-message"></div>
+      <button class="btn btn-save" id="save-settings">保存设置</button>
+    </section>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

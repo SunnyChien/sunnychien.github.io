@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>晴天的时间安排表</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="app-caption">晴天一周计划表</p>
+        <h1 id="date-heading">每日时间安排</h1>
+      </div>
+      <div class="score-badge" id="weekly-score">0 / 100 分</div>
+    </header>
+
+    <section class="panel panel-primary" aria-labelledby="week-plan-title">
+      <div class="panel-header">
+        <div>
+          <h2 id="week-plan-title">本周活动安排</h2>
+          <p>选中完成的活动后会自动计分。每完成一项爸爸妈妈会选择加分。</p>
+        </div>
+        <a class="btn btn-secondary" href="settings.html">前往设置页</a>
+      </div>
+      <div class="table-wrap">
+        <table class="plan-table">
+          <thead id="plan-head"></thead>
+          <tbody id="plan-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="modal-overlay hidden" id="reward-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>今日奖励</h3>
+          <button type="button" class="modal-close" id="reward-modal-close">×</button>
+        </div>
+        <div class="modal-body" id="reward-options"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="reward-modal-cancel">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="panel panel-secondary" aria-labelledby="summary-title">
+      <div class="panel-header">
+        <h2 id="summary-title">本周复盘</h2>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <h3>累计积分</h3>
+          <p class="summary-number" id="total-points">0</p>
+        </div>
+        <div class="summary-card">
+          <h3>目标积分</h3>
+          <p class="summary-number" id="target-points">100</p>
+        </div>
+        <div class="summary-card">
+          <h3>补全建议</h3>
+          <p class="summary-note" id="makeup-note">无</p>
+        </div>
+      </div>
+      <div class="review-list" id="review-list"></div>
+    </section>
+
+    <footer class="app-footer">
+      <p>本原型使用本地存储，刷新后保留记录。用于晴天日常计划与复盘。</p>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

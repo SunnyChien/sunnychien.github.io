@@ -21,6 +21,119 @@ const defaultSettings = {
 };
 
 const storageKey = "study-planner-data";
+const SUPABASE_TABLE_NAME = window.SUPABASE_TABLE || "shared_plans";
+const SUPABASE_STATE_ID = window.SHARED_PLAN_ID || "family_shared_plan";
+const syncStatusElement = document.getElementById("sync-status");
+
+function setSyncStatus(text, status = "pending") {
+  if (!syncStatusElement) return;
+  syncStatusElement.textContent = text;
+  syncStatusElement.className = `sync-status ${status}`;
+}
+
+function initializeSyncStatus() {
+  if (!syncStatusElement) return;
+  if (!isSupabaseReady()) {
+    setSyncStatus("Supabase 未配置或未连接，当前仅使用本地数据。", "error");
+  } else {
+    setSyncStatus("已连接 Supabase，正在检查同步状态…", "pending");
+  }
+}
+
+function isSupabaseReady() {
+  return (
+    typeof isSupabaseConfigured === "function" &&
+    isSupabaseConfigured() &&
+    typeof window.supabaseClient !== "undefined" &&
+    window.supabaseClient !== null
+  );
+}
+
+function getPersistedData() {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch (error) {
+    console.warn("读取本地存储失败", error);
+  }
+  return { settings: state.settings };
+}
+
+function persistData(data) {
+  data.updatedAt = Date.now();
+  localStorage.setItem(storageKey, JSON.stringify(data));
+}
+
+async function saveSettingsToRemote(data) {
+  if (!isSupabaseReady()) return;
+
+  const payload = {
+    id: SUPABASE_STATE_ID,
+    state: data,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await window.supabaseClient.from(SUPABASE_TABLE_NAME).upsert(payload, {
+    onConflict: "id",
+  });
+
+  if (error) {
+    console.warn("Supabase 保存失败", error);
+    setSyncStatus("Supabase 保存失败，请稍后重试。", "error");
+  } else {
+    setSyncStatus("设置已同步到 Supabase。", "connected");
+  }
+}
+
+async function syncSettingsFromRemote() {
+  if (!isSupabaseReady()) return;
+  setSyncStatus("正在从 Supabase 获取最新设置...", "pending");
+
+  try {
+    const localData = getPersistedData();
+    const localUpdatedAt = Number(localData.updatedAt) || 0;
+
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_TABLE_NAME)
+      .select("state, updated_at")
+      .eq("id", SUPABASE_STATE_ID)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.warn("Supabase 读取失败", error);
+      return;
+    }
+
+    if (!data) {
+      await saveSettingsToRemote(localData);
+      return;
+    }
+
+    const remoteState = data.state || {};
+    const remoteUpdatedAt = new Date(data.updated_at).getTime() || 0;
+
+    if (remoteUpdatedAt > localUpdatedAt) {
+      const merged = { ...remoteState, updatedAt: remoteUpdatedAt };
+      persistData(merged);
+      state.settings = merged.settings || defaultSettings;
+      refresh();
+      syncForm();
+      buildActivityOptions();
+      buildRewardOptions();
+      buildExtraBonusOptions();
+      setSyncStatus("已从 Supabase 拉取最新设置。", "connected");
+    } else if (localUpdatedAt > remoteUpdatedAt) {
+      await saveSettingsToRemote(localData);
+      setSyncStatus("本地设置较新，已同步到 Supabase。", "connected");
+    } else {
+      setSyncStatus("Supabase 与本地设置已同步。", "connected");
+    }
+  } catch (error) {
+    console.warn("Supabase 同步失败", error);
+  }
+}
 
 const weeklyGoalInput = document.getElementById("weekly-goal");
 const rewardThresholdInput = document.getElementById("reward-threshold");
@@ -35,6 +148,9 @@ const addRewardButton = document.getElementById("add-reward");
 const settingsMessage = document.getElementById("settings-message");
 
 let state = loadState();
+
+const supabaseReadyPromise = window.supabaseConfigReady || Promise.resolve();
+supabaseReadyPromise.finally(() => initializeSyncStatus());
 
 function loadState() {
   try {
@@ -113,7 +229,9 @@ function saveState() {
     console.warn("读取本地存储失败", error);
   }
   parsed.settings = state.settings;
+  parsed.updatedAt = Date.now();
   localStorage.setItem(storageKey, JSON.stringify(parsed));
+  saveSettingsToRemote(parsed).catch((error) => console.warn("Supabase 保存失败", error));
 }
 
 function createActivityRow(activity) {
@@ -414,3 +532,12 @@ addExtraBonusButton = document.getElementById('add-extra-bonus');
 addExtraBonusButton.addEventListener('click', addExtraBonusRow);
 
 refresh();
+
+const settingsSupabaseReady = window.supabaseConfigReady || Promise.resolve();
+settingsSupabaseReady
+  .then(() => syncSettingsFromRemote())
+  .then(() => refresh())
+  .catch(() => {
+    initializeSyncStatus();
+  });
+

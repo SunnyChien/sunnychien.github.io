@@ -41,7 +41,12 @@ function initializeSyncStatus() {
 }
 
 function isSupabaseReady() {
-  return typeof isSupabaseConfigured === "function" && isSupabaseConfigured() && typeof supabaseClient !== "undefined" && supabaseClient !== null;
+  return (
+    typeof isSupabaseConfigured === "function" &&
+    isSupabaseConfigured() &&
+    typeof window.supabaseClient !== "undefined" &&
+    window.supabaseClient !== null
+  );
 }
 
 function getPersistedData() {
@@ -70,7 +75,7 @@ async function saveSettingsToRemote(data) {
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabaseClient.from(SUPABASE_TABLE_NAME).upsert(payload, {
+  const { error } = await window.supabaseClient.from(SUPABASE_TABLE_NAME).upsert(payload, {
     onConflict: "id",
   });
 
@@ -143,7 +148,9 @@ const addRewardButton = document.getElementById("add-reward");
 const settingsMessage = document.getElementById("settings-message");
 
 let state = loadState();
-initializeSyncStatus();
+
+const supabaseReadyPromise = window.supabaseConfigReady || Promise.resolve();
+supabaseReadyPromise.finally(() => initializeSyncStatus());
 
 function loadState() {
   try {
@@ -525,4 +532,12 @@ addExtraBonusButton = document.getElementById('add-extra-bonus');
 addExtraBonusButton.addEventListener('click', addExtraBonusRow);
 
 refresh();
-syncSettingsFromRemote().then(() => refresh());
+
+const settingsSupabaseReady = window.supabaseConfigReady || Promise.resolve();
+settingsSupabaseReady
+  .then(() => syncSettingsFromRemote())
+  .then(() => refresh())
+  .catch(() => {
+    initializeSyncStatus();
+  });
+

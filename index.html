@@ -72,15 +72,7 @@
     </footer>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-  <script>
-    if (typeof window.supabase === 'undefined') {
-      console.warn('Supabase SDK CDN 加载失败，尝试备用 CDN。');
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/supabase.min.js';
-      document.head.appendChild(script);
-    }
-  </script>
+  <script src="supabase-loader.js"></script>
   <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>

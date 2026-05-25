@@ -50,7 +50,12 @@ function initializeSyncStatus() {
 }
 
 function isSupabaseReady() {
-  return typeof isSupabaseConfigured === "function" && isSupabaseConfigured() && typeof supabaseClient !== "undefined" && supabaseClient !== null;
+  return (
+    typeof isSupabaseConfigured === "function" &&
+    isSupabaseConfigured() &&
+    typeof window.supabaseClient !== "undefined" &&
+    window.supabaseClient !== null
+  );
 }
 
 async function saveStateToRemote() {
@@ -63,7 +68,7 @@ async function saveStateToRemote() {
   };
   setSyncStatus("正在将数据保存到 Supabase...", "pending");
 
-  const { error } = await supabaseClient.from(SUPABASE_TABLE_NAME).upsert(payload, {
+  const { error } = await window.supabaseClient.from(SUPABASE_TABLE_NAME).upsert(payload, {
     onConflict: "id",
   });
 
@@ -80,7 +85,7 @@ async function syncStateFromRemote() {
   setSyncStatus("正在从 Supabase 获取最新数据...", "pending");
 
   try {
-    const { data, error } = await supabaseClient
+    const { data, error } = await window.supabaseClient
       .from(SUPABASE_TABLE_NAME)
       .select("state, updated_at")
       .eq("id", SUPABASE_STATE_ID)
@@ -129,7 +134,9 @@ const makeupNote = document.getElementById("makeup-note");
 const reviewList = document.getElementById("review-list");
 
 let state = loadState();
-initializeSyncStatus();
+
+const supabaseReadyPromise = window.supabaseConfigReady || Promise.resolve();
+supabaseReadyPromise.finally(() => initializeSyncStatus());
 
 function getActivityList() {
   return state.settings.activities || defaultSettings.activities;
@@ -655,4 +662,11 @@ function attachRewardModalHandlers() {
 renderDateHeader();
 attachRewardModalHandlers();
 refresh();
-syncStateFromRemote().then(() => refresh());
+
+const appSupabaseReady = window.supabaseConfigReady || Promise.resolve();
+appSupabaseReady
+  .then(() => syncStateFromRemote())
+  .then(() => refresh())
+  .catch(() => {
+    initializeSyncStatus();
+  });

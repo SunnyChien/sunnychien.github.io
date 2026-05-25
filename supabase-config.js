@@ -13,12 +13,33 @@ function isSupabaseConfigured() {
   );
 }
 
-let supabaseClient = null;
-if (typeof supabase === "undefined") {
-  console.error("Supabase SDK 未加载，请检查 CDN 是否可访问。", window.supabase);
-} else if (isSupabaseConfigured()) {
-  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  console.log("Supabase SDK 已加载，Supabase 客户端已创建。");
-} else {
-  console.error("Supabase 配置未通过检查，请确认 SUPABASE_URL 和 SUPABASE_ANON_KEY 已正确填写。");
-}
+window.supabaseClient = null;
+window.supabaseConfigReady = (async function () {
+  if (!isSupabaseConfigured()) {
+    console.error("Supabase 配置未通过检查，请确认 SUPABASE_URL 和 SUPABASE_ANON_KEY 已正确填写。", {
+      SUPABASE_URL,
+      SUPABASE_ANON_KEY,
+    });
+    return;
+  }
+
+  if (typeof window.supabase === "undefined") {
+    if (!window.supabaseLoaderPromise) {
+      console.error("Supabase SDK 加载器不存在，请确认 supabase-loader.js 已正确加载。");
+      return;
+    }
+    await window.supabaseLoaderPromise;
+  }
+
+  if (typeof window.supabase === "undefined") {
+    console.error("Supabase SDK 未加载，无法创建客户端。", window.supabase);
+    return;
+  }
+
+  try {
+    window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log("Supabase 客户端已创建。");
+  } catch (error) {
+    console.error("创建 Supabase 客户端失败：", error);
+  }
+})();

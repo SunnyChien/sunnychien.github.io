@@ -30,6 +30,96 @@ const defaultSettings = {
 
 const storageKey = "study-planner-data";
 
+const SUPABASE_TABLE_NAME = window.SUPABASE_TABLE || "shared_plans";
+const SUPABASE_STATE_ID = window.SHARED_PLAN_ID || "family_shared_plan";
+const syncStatusElement = document.getElementById("sync-status");
+
+function setSyncStatus(text, status = "pending") {
+  if (!syncStatusElement) return;
+  syncStatusElement.textContent = text;
+  syncStatusElement.className = `sync-status ${status}`;
+}
+
+function initializeSyncStatus() {
+  if (!syncStatusElement) return;
+  if (!isSupabaseReady()) {
+    setSyncStatus("Supabase 未配置或未连接，当前仅使用本地数据。", "error");
+  } else {
+    setSyncStatus("已连接 Supabase，正在检查同步状态…", "pending");
+  }
+}
+
+function isSupabaseReady() {
+  return typeof isSupabaseConfigured === "function" && isSupabaseConfigured() && typeof supabaseClient !== "undefined" && supabaseClient !== null;
+}
+
+async function saveStateToRemote() {
+  if (!isSupabaseReady()) return;
+
+  const payload = {
+    id: SUPABASE_STATE_ID,
+    state,
+    updated_at: new Date().toISOString(),
+  };
+  setSyncStatus("正在将数据保存到 Supabase...", "pending");
+
+  const { error } = await supabaseClient.from(SUPABASE_TABLE_NAME).upsert(payload, {
+    onConflict: "id",
+  });
+
+  if (error) {
+    console.warn("Supabase 远程保存失败", error);
+    setSyncStatus("Supabase 远程保存失败，请稍后重试。", "error");
+  } else {
+    setSyncStatus("已同步到 Supabase。", "connected");
+  }
+}
+
+async function syncStateFromRemote() {
+  if (!isSupabaseReady()) return;
+  setSyncStatus("正在从 Supabase 获取最新数据...", "pending");
+
+  try {
+    const { data, error } = await supabaseClient
+      .from(SUPABASE_TABLE_NAME)
+      .select("state, updated_at")
+      .eq("id", SUPABASE_STATE_ID)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.warn("Supabase 读取失败", error);
+      return;
+    }
+
+    if (!data) {
+      await saveStateToRemote();
+      return;
+    }
+
+    const remoteState = data.state || {};
+    const remoteUpdatedAt = new Date(data.updated_at).getTime() || 0;
+    const localUpdatedAt = Number(state.updatedAt) || 0;
+
+    if (remoteUpdatedAt > localUpdatedAt) {
+      state = { ...remoteState, updatedAt: remoteUpdatedAt };
+      saveState(false);
+      refresh();
+      setSyncStatus("已从 Supabase 拉取最新数据。", "connected");
+    } else if (localUpdatedAt > remoteUpdatedAt) {
+      await saveStateToRemote();
+      setSyncStatus("本地数据较新，已同步到 Supabase。", "connected");
+    } else {
+      setSyncStatus("Supabase 与本地数据已同步。", "connected");
+    }
+  } catch (error) {
+    console.warn("Supabase 同步失败", error);
+  }
+}
+
+function syncStateToRemote() {
+  saveStateToRemote().catch((error) => console.warn("Supabase 同步失败", error));
+}
+
 const planHead = document.getElementById("plan-head");
 const planBody = document.getElementById("plan-body");
 const weeklyScore = document.getElementById("weekly-score");
@@ -39,6 +129,7 @@ const makeupNote = document.getElementById("makeup-note");
 const reviewList = document.getElementById("review-list");
 
 let state = loadState();
+initializeSyncStatus();
 
 function getActivityList() {
   return state.settings.activities || defaultSettings.activities;
@@ -138,8 +229,12 @@ function loadState() {
   };
 }
 
-function saveState() {
+function saveState(syncRemote = true) {
+  state.updatedAt = Date.now();
   localStorage.setItem(storageKey, JSON.stringify(state));
+  if (syncRemote) {
+    syncStateToRemote();
+  }
 }
 
 function getActiveActivities() {
@@ -560,3 +655,4 @@ function attachRewardModalHandlers() {
 renderDateHeader();
 attachRewardModalHandlers();
 refresh();
+syncStateFromRemote().then(() => refresh());

@@ -726,11 +726,11 @@ function autoArchiveIfNeeded() {
         id: weekId,
         weekRange: lastWeekRange,
         archivedAt: Date.now(),
-        plan: state.plan,
-        settings: state.settings,
+        plan: JSON.parse(JSON.stringify(state.plan)),
+        settings: JSON.parse(JSON.stringify(state.settings)),
         totalPoints: getTotalPoints(),
         weeklyGoal: state.settings.weeklyGoal,
-        weeklyGrandRewardClaimed: state.weeklyGrandRewardClaimed,
+        weeklyGrandRewardClaimed: JSON.parse(JSON.stringify(state.weeklyGrandRewardClaimed)),
       };
       
       if (!state.history.some(h => h.id === archiveData.id)) {
@@ -760,7 +760,7 @@ function renderHistoryContent() {
   const container = document.getElementById('history-content');
   
   if (!state.history || state.history.length === 0) {
-    container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">暂无历史记录，点击"归档本周"按钮来保存当前周的数据。</p>';
+    container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">暂无历史记录。每周数据会在周一自动保存到历史记录。</p>';
     return;
   }
   

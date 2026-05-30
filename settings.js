@@ -17,6 +17,7 @@ const defaultSettings = {
   activities: defaultActivities,
   rewards: defaultRewards,
   extraBonuses: [],
+  requiredActivities: [],
   weeklyGrandReward: { key: 'grand', label: '周大奖励', enabled: false },
 };
 
@@ -140,6 +141,7 @@ const rewardThresholdInput = document.getElementById("reward-threshold");
 const activitiesList = document.getElementById("activities-list");
 const rewardsList = document.getElementById("rewards-list");
 const extraBonusesList = document.getElementById("extra-bonuses-list");
+const requiredActivitiesList = document.getElementById("required-activities-list");
 const weeklyGrandLabelInput = document.getElementById('weekly-grand-label');
 const weeklyGrandEnabledInput = document.getElementById('weekly-grand-enabled');
 const saveSettingsButton = document.getElementById("save-settings");
@@ -190,6 +192,13 @@ function loadState() {
         bonusPoints: Number(item.bonusPoints) || 1,
         enabled: item.enabled !== false,
       }));
+      const requiredActivitiesSource = savedSettings.requiredActivities || [];
+      const requiredActivities = requiredActivitiesSource.map((item, idx) => ({
+        key: item.key || `required-${Date.now()}-${idx}`,
+        activityKey: item.activityKey || (defaultSettings.activities[0] && defaultSettings.activities[0].key),
+        requiredCount: Number(item.requiredCount) > 0 ? Number(item.requiredCount) : 1,
+        enabled: item.enabled !== false,
+      }));
       const weeklyGrand = savedSettings.weeklyGrandReward
         ? {
             key: savedSettings.weeklyGrandReward.key || 'grand',
@@ -208,6 +217,7 @@ function loadState() {
           activities,
           rewards,
           extraBonuses,
+          requiredActivities,
           weeklyGrandReward: weeklyGrand,
         },
         history: parsed.history || [],
@@ -487,6 +497,7 @@ function refresh() {
   buildActivityOptions();
   buildRewardOptions();
   buildExtraBonusOptions();
+  buildRequiredActivityOptions();
   showMessage("请设置每周目标、每项活动分值以及可用活动。若达到奖励阈值，可在首页领取奖励。");
 }
 
@@ -518,6 +529,7 @@ saveSettingsButton.addEventListener("click", () => {
   state.settings.activities = activities;
   state.settings.rewards = rewards;
   state.settings.extraBonuses = extraBonuses;
+  state.settings.requiredActivities = buildRequiredActivitiesFromRows();
   // weekly grand reward
   state.settings.weeklyGrandReward = {
     key: (state.settings.weeklyGrandReward && state.settings.weeklyGrandReward.key) || `grand`,
@@ -530,8 +542,89 @@ saveSettingsButton.addEventListener("click", () => {
 
 addActivityButton.addEventListener("click", addActivityRow);
 addRewardButton.addEventListener("click", addRewardRow);
-addExtraBonusButton = document.getElementById('add-extra-bonus');
+const addExtraBonusButton = document.getElementById('add-extra-bonus');
 addExtraBonusButton.addEventListener('click', addExtraBonusRow);
+
+function createRequiredActivityRow(item) {
+  const row = document.createElement("div");
+  row.className = "activity-row";
+  row.dataset.key = item.key;
+
+  const enabledLabel = document.createElement("label");
+  enabledLabel.className = "activity-toggle";
+  enabledLabel.innerHTML = `<input type="checkbox" class="required-enabled" ${item.enabled ? "checked" : ""}/> 启用`;
+
+  const activitySelect = document.createElement("select");
+  activitySelect.className = "activity-label";
+  (state.settings.activities || []).forEach((act) => {
+    const opt = document.createElement("option");
+    opt.value = act.key;
+    opt.textContent = act.label;
+    if (act.key === item.activityKey) opt.selected = true;
+    activitySelect.appendChild(opt);
+  });
+
+  const countInput = document.createElement("input");
+  countInput.type = "number";
+  countInput.min = "1";
+  countInput.step = "1";
+  countInput.className = "activity-score";
+  countInput.value = item.requiredCount;
+  countInput.title = "完成次数";
+
+  const countLabel = document.createElement("span");
+  countLabel.textContent = "次";
+  countLabel.style.fontSize = "0.9rem";
+  countLabel.style.color = "#64748b";
+
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.className = "btn btn-delete";
+  deleteButton.textContent = "删除";
+  deleteButton.addEventListener("click", () => {
+    if (confirm('确认删除该必选活动？')) {
+      row.remove();
+    }
+  });
+
+  row.appendChild(enabledLabel);
+  row.appendChild(activitySelect);
+  row.appendChild(countInput);
+  row.appendChild(countLabel);
+  row.appendChild(deleteButton);
+  return row;
+}
+
+function buildRequiredActivitiesFromRows() {
+  const rows = Array.from(requiredActivitiesList.querySelectorAll('.activity-row'));
+  return rows.map((row, index) => {
+    const key = row.dataset.key || `required-${Date.now()}-${index}`;
+    const enabled = row.querySelector('.required-enabled').checked;
+    const activityKey = row.querySelector('select').value;
+    const requiredCount = Number(row.querySelector('.activity-score').value) || 1;
+    return { key, activityKey, requiredCount, enabled };
+  });
+}
+
+function buildRequiredActivityOptions() {
+  requiredActivitiesList.innerHTML = "";
+  (state.settings.requiredActivities || []).forEach((item) => {
+    requiredActivitiesList.appendChild(createRequiredActivityRow(item));
+  });
+}
+
+function addRequiredActivityRow() {
+  const newItem = {
+    key: `required-${Date.now()}`,
+    activityKey: state.settings.activities[0] ? state.settings.activities[0].key : "",
+    requiredCount: 1,
+    enabled: true,
+  };
+  requiredActivitiesList.appendChild(createRequiredActivityRow(newItem));
+}
+
+const addRequiredActivityButton = document.getElementById('add-required-activity');
+addRequiredActivityButton.addEventListener('click', addRequiredActivityRow);
 
 refresh();
 

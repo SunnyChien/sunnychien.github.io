@@ -546,8 +546,10 @@ input {
   }
 
   .table-wrap {
-    margin: 0 -12px;
-    padding: 0 12px;
+    margin: 0;
+    padding: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .plan-table {

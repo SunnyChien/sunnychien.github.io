@@ -26,6 +26,7 @@ const defaultSettings = {
   rewardThreshold: 30,
   activities: defaultActivities,
   rewards: defaultRewards,
+  requiredActivities: [],
 };
 
 const storageKey = "study-planner-data";
@@ -189,6 +190,7 @@ function loadState() {
         ? savedSettings.rewards
         : defaultSettings.rewards;
       const extraBonusesSource = savedSettings.extraBonuses || [];
+      const requiredActivitiesSource = savedSettings.requiredActivities || [];
       const rewards = rewardsSource.map((item) => ({
         key: item.key || `reward-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         label: item.label || item.key || "奖励",
@@ -200,6 +202,12 @@ function loadState() {
         activityKey: item.activityKey || (defaultSettings.activities[0] && defaultSettings.activities[0].key),
         requiredCount: Number(item.requiredCount) > 0 ? Number(item.requiredCount) : 1,
         bonusPoints: Number(item.bonusPoints) || 0,
+        enabled: item.enabled !== false,
+      }));
+      const requiredActivities = requiredActivitiesSource.map((item, idx) => ({
+        key: item.key || `required-${Date.now()}-${idx}`,
+        activityKey: item.activityKey || (defaultSettings.activities[0] && defaultSettings.activities[0].key),
+        requiredCount: Number(item.requiredCount) > 0 ? Number(item.requiredCount) : 1,
         enabled: item.enabled !== false,
       }));
       const activities = activitiesSource.map((item) => ({
@@ -223,6 +231,7 @@ function loadState() {
           activities,
           rewards,
           extraBonuses,
+          requiredActivities,
         },
         weeklyGrandRewardClaimed: parsed.weeklyGrandRewardClaimed || { claimed: false, rewardKey: null },
         history: parsed.history || [],
@@ -287,14 +296,18 @@ function isWeeklyGrandClaimed() {
 function claimWeeklyGrandToggle() {
   if (!state.weeklyGrandRewardClaimed) state.weeklyGrandRewardClaimed = { claimed: false, rewardKey: null };
   if (!isWeeklyGrandClaimed()) {
-    // Claim
+    const { allCompleted, details } = getRequiredActivitiesCompletion();
+    if (!allCompleted) {
+      const incompleteList = details.filter(d => !d.completed).map(d => `${d.activityLabel}（${d.completedCount}/${d.requiredCount}次）`).join('、');
+      alert(`还有必选活动未完成：${incompleteList}\n完成所有必选活动后才能领取本周大奖励！`);
+      return;
+    }
     state.weeklyGrandRewardClaimed.claimed = true;
     state.weeklyGrandRewardClaimed.rewardKey = state.settings.weeklyGrandReward ? state.settings.weeklyGrandReward.key : null;
     state.weeklyGrandRewardClaimed.timestamp = Date.now();
     saveState();
     refresh();
   } else {
-    // Cancel claim
     if (confirm("取消本周大奖励领取？")) {
       state.weeklyGrandRewardClaimed = { claimed: false, rewardKey: null };
       saveState();
@@ -305,9 +318,9 @@ function claimWeeklyGrandToggle() {
 
 function renderWeeklyScoreBadge(totalPoints, weeklyGoal) {
   if (!weeklyScore) return;
-  weeklyScore.classList.toggle('reached', totalPoints >= weeklyGoal);
+  const { allCompleted } = getRequiredActivitiesCompletion();
+  weeklyScore.classList.toggle('reached', totalPoints >= weeklyGoal && allCompleted);
   weeklyScore.innerHTML = `<div class="badge-text">${totalPoints} / ${weeklyGoal} 分</div>`;
-  // add claim button when reached and enabled
   const grand = state.settings.weeklyGrandReward;
   if (totalPoints >= weeklyGoal && grand && grand.enabled) {
     const btn = document.createElement('button');
@@ -315,6 +328,11 @@ function renderWeeklyScoreBadge(totalPoints, weeklyGoal) {
     btn.className = 'btn btn-save';
     if (isWeeklyGrandClaimed()) {
       btn.textContent = `已领取：${grand.label}`;
+    } else if (!allCompleted) {
+      btn.textContent = '必选活动未完成';
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+      btn.style.cursor = 'not-allowed';
     } else {
       btn.textContent = '领取本周大奖励';
     }
@@ -645,9 +663,71 @@ function buildSummary() {
   }
 }
 
+function getRequiredActivitiesCompletion() {
+  const required = (state.settings.requiredActivities || []).filter(r => r.enabled);
+  if (required.length === 0) return { allCompleted: true, details: [] };
+  
+  const details = required.map(req => {
+    const activity = state.settings.activities.find(a => a.key === req.activityKey);
+    const activityLabel = activity ? activity.label : req.activityKey;
+    let completedCount = 0;
+    state.plan.forEach(day => {
+      if (day.tasks[req.activityKey]) completedCount++;
+    });
+    return {
+      key: req.key,
+      activityLabel,
+      requiredCount: req.requiredCount,
+      completedCount,
+      completed: completedCount >= req.requiredCount,
+    };
+  });
+  
+  const allCompleted = details.every(d => d.completed);
+  return { allCompleted, details };
+}
+
+function renderRequiredActivitiesStatus() {
+  const container = document.getElementById('required-activities-status');
+  if (!container) return;
+  
+  const { allCompleted, details } = getRequiredActivitiesCompletion();
+  
+  if (details.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  let html = `<div style="border: 1px solid rgba(99, 102, 241, 0.14); border-radius: 16px; padding: 16px; background: #f8fafc;">
+    <h3 style="margin: 0 0 12px; font-size: 1rem; color: #1e293b;">📋 本周必选活动</h3>
+    <div style="display: flex; flex-wrap: wrap; gap: 12px;">`;
+  
+  details.forEach(d => {
+    const statusColor = d.completed ? '#10b981' : '#f59e0b';
+    const statusIcon = d.completed ? '✅' : '⏳';
+    html += `<div style="background: #fff; border-radius: 12px; padding: 10px 16px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 8px;">
+      <span>${statusIcon}</span>
+      <span style="font-weight: 600; color: #1e293b;">${d.activityLabel}</span>
+      <span style="color: ${statusColor}; font-weight: 500;">${d.completedCount} / ${d.requiredCount} 次</span>
+    </div>`;
+  });
+  
+  html += `</div>`;
+  
+  if (allCompleted) {
+    html += `<div style="margin-top: 10px; color: #10b981; font-size: 0.9rem; font-weight: 500;">✅ 所有必选活动已完成，满足大奖励领取条件！</div>`;
+  } else {
+    html += `<div style="margin-top: 10px; color: #f59e0b; font-size: 0.9rem; font-weight: 500;">⏳ 完成所有必选活动后才能领取本周大奖励</div>`;
+  }
+  
+  html += `</div>`;
+  container.innerHTML = html;
+}
+
 function refresh() {
   buildTable();
   buildSummary();
+  renderRequiredActivitiesStatus();
 }
 
 function attachRewardModalHandlers() {

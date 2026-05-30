@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>设置 - 儿童计划表</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=2" />
 </head>
 <body>
   <div class="app-shell">
@@ -14,7 +14,10 @@
         <h1>每日活动与积分配置</h1>
       </div>
       <div id="sync-status" class="sync-status">Supabase 同步状态初始化中…</div>
-      <a class="btn btn-secondary" href="index.html">返回计划页</a>
+      <div style="display: flex; gap: 12px;">
+        <a class="btn btn-secondary" href="reward-shop.html">奖励商店</a>
+        <a class="btn btn-secondary" href="index.html">返回计划页</a>
+      </div>
     </header>
 
     <section class="panel panel-settings" aria-labelledby="settings-page-title">
@@ -31,14 +34,6 @@
           <label for="reward-threshold">每日奖励阈值</label>
           <input id="reward-threshold" type="number" min="1" step="1" />
         </div>
-        <div class="setting-item">
-          <label for="weekly-grand-label">本周大奖励名称</label>
-          <input id="weekly-grand-label" type="text" placeholder="例如：周末家庭出游" />
-        </div>
-        <div class="setting-item">
-          <label for="weekly-grand-enabled">启用本周大奖励</label>
-          <input id="weekly-grand-enabled" type="checkbox" />
-        </div>
       </div>
 
       <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
@@ -50,15 +45,6 @@
       </div>
       <div class="activity-options" id="activities-list"></div>
 
-      <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
-        <div>
-          <h3>奖励设置</h3>
-          <p>可设置奖励名称、每周可用次数，并启用或禁用。</p>
-        </div>
-        <button class="btn btn-secondary btn-add" type="button" id="add-reward">新增奖励</button>
-      </div>
-      <div class="activity-options" id="rewards-list"></div>
-      
       <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
         <div>
           <h3>额外加分规则</h3>
@@ -82,8 +68,8 @@
     </section>
   </div>
 
-  <script src="supabase-loader.js"></script>
-  <script src="supabase-config.js"></script>
-  <script src="settings.js"></script>
+  <script src="supabase-loader.js?v=2"></script>
+  <script src="supabase-config.js?v=2"></script>
+  <script src="settings.js?v=2"></script>
 </body>
 </html>

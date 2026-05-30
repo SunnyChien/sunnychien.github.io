@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>奖励商店 - 儿童计划表</title>
+  <link rel="stylesheet" href="styles.css?v=2" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="app-caption">奖励商店</p>
+        <h1>管理每日奖励与每周大奖励</h1>
+      </div>
+      <div id="sync-status" class="sync-status">Supabase 同步状态初始化中…</div>
+      <a class="btn btn-secondary" href="index.html">返回计划页</a>
+    </header>
+
+    <section class="panel panel-settings" aria-labelledby="reward-shop-title">
+      <div class="panel-header">
+        <h2 id="reward-shop-title">🎁 每日达标奖励</h2>
+        <p>每日积分达到阈值后可领取的奖励，可设置名称和每周可用次数。</p>
+      </div>
+      <div class="reward-shop-grid" id="daily-rewards-grid"></div>
+      <button class="btn btn-secondary btn-add" type="button" id="add-daily-reward" style="margin-top: 12px;">+ 新增每日奖励</button>
+    </section>
+
+    <section class="panel panel-settings" style="margin-top: 20px;" aria-labelledby="weekly-grand-title">
+      <div class="panel-header">
+        <h2 id="weekly-grand-title">🏆 本周大奖励</h2>
+        <p>每周积分达标且完成必选活动后可领取的大奖励，可设置名称和每周可用次数。</p>
+      </div>
+      <div class="reward-shop-grid" id="weekly-grand-grid"></div>
+    </section>
+
+    <div class="message-box" id="reward-shop-message" style="margin-top: 20px;"></div>
+    <button class="btn btn-save" id="save-reward-shop" style="margin-top: 12px;">保存奖励设置</button>
+  </div>
+
+  <script src="supabase-loader.js?v=2"></script>
+  <script src="supabase-config.js?v=2"></script>
+  <script src="reward-shop.js?v=2"></script>
+</body>
+</html>

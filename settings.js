@@ -122,7 +122,6 @@ async function syncSettingsFromRemote() {
       refresh();
       syncForm();
       buildActivityOptions();
-      buildRewardOptions();
       buildExtraBonusOptions();
       setSyncStatus("已从 Supabase 拉取最新设置。", "connected");
     } else if (localUpdatedAt > remoteUpdatedAt) {
@@ -139,14 +138,10 @@ async function syncSettingsFromRemote() {
 const weeklyGoalInput = document.getElementById("weekly-goal");
 const rewardThresholdInput = document.getElementById("reward-threshold");
 const activitiesList = document.getElementById("activities-list");
-const rewardsList = document.getElementById("rewards-list");
 const extraBonusesList = document.getElementById("extra-bonuses-list");
 const requiredActivitiesList = document.getElementById("required-activities-list");
-const weeklyGrandLabelInput = document.getElementById('weekly-grand-label');
-const weeklyGrandEnabledInput = document.getElementById('weekly-grand-enabled');
 const saveSettingsButton = document.getElementById("save-settings");
 const addActivityButton = document.getElementById("add-activity");
-const addRewardButton = document.getElementById("add-reward");
 const settingsMessage = document.getElementById("settings-message");
 
 let state = loadState();
@@ -292,45 +287,6 @@ function buildActivityOptions() {
   });
 }
 
-function createRewardRow(reward) {
-  const row = document.createElement("div");
-  row.className = "activity-row";
-  row.dataset.key = reward.key;
-
-  const enabledLabel = document.createElement("label");
-  enabledLabel.className = "activity-toggle";
-  enabledLabel.innerHTML = `<input type="checkbox" class="reward-enabled" ${reward.enabled ? "checked" : ""}/> 启用`;
-
-  const nameInput = document.createElement("input");
-  nameInput.type = "text";
-  nameInput.className = "activity-label";
-  nameInput.value = reward.label;
-  nameInput.placeholder = "奖励名称";
-
-  const limitInput = document.createElement("input");
-  limitInput.type = "number";
-  limitInput.min = "1";
-  limitInput.step = "1";
-  limitInput.className = "activity-score";
-  limitInput.value = reward.weeklyLimit;
-
-  const deleteButton = document.createElement("button");
-  deleteButton.type = "button";
-  deleteButton.className = "btn btn-delete";
-  deleteButton.textContent = "删除";
-  deleteButton.addEventListener("click", () => {
-    if (confirm(`确认删除奖励“${reward.label}”？`)) {
-      row.remove();
-    }
-  });
-
-  row.appendChild(enabledLabel);
-  row.appendChild(nameInput);
-  row.appendChild(limitInput);
-  row.appendChild(deleteButton);
-  return row;
-}
-
 function createExtraBonusRow(item) {
   const row = document.createElement("div");
   row.className = "activity-row";
@@ -391,13 +347,6 @@ function buildExtraBonusOptions() {
   });
 }
 
-function buildRewardOptions() {
-  rewardsList.innerHTML = "";
-  state.settings.rewards.forEach((reward) => {
-    rewardsList.appendChild(createRewardRow(reward));
-  });
-}
-
 function buildActivitiesForSelect() {
   // rebuilds extra bonus rows' activity selects when activities change
   const selects = Array.from(document.querySelectorAll('#extra-bonuses-list select'));
@@ -417,8 +366,6 @@ function buildActivitiesForSelect() {
 function syncForm() {
   weeklyGoalInput.value = state.settings.weeklyGoal;
   rewardThresholdInput.value = state.settings.rewardThreshold;
-  if (weeklyGrandLabelInput) weeklyGrandLabelInput.value = (state.settings.weeklyGrandReward && state.settings.weeklyGrandReward.label) || '';
-  if (weeklyGrandEnabledInput) weeklyGrandEnabledInput.checked = !!(state.settings.weeklyGrandReward && state.settings.weeklyGrandReward.enabled);
 }
 
 function buildExtraBonusesFromRows() {
@@ -450,17 +397,6 @@ function buildActivitiesFromRows() {
   });
 }
 
-function buildRewardsFromRows() {
-  const rows = Array.from(rewardsList.querySelectorAll(".activity-row"));
-  return rows.map((row, index) => {
-    const key = row.dataset.key || `reward-${Date.now()}-${index}`;
-    const enabled = row.querySelector(".reward-enabled").checked;
-    const label = row.querySelector(".activity-label").value.trim() || `奖励 ${index + 1}`;
-    const weeklyLimit = Number(row.querySelector(".activity-score").value) || 1;
-    return { key, label, weeklyLimit, enabled };
-  });
-}
-
 function addActivityRow() {
   const newActivity = {
     key: `activity-${Date.now()}`,
@@ -469,16 +405,6 @@ function addActivityRow() {
     enabled: true,
   };
   activitiesList.appendChild(createActivityRow(newActivity));
-}
-
-function addRewardRow() {
-  const newReward = {
-    key: `reward-${Date.now()}`,
-    label: "新奖励",
-    weeklyLimit: 1,
-    enabled: true,
-  };
-  rewardsList.appendChild(createRewardRow(newReward));
 }
 
 function addExtraBonusRow() {
@@ -495,7 +421,6 @@ function addExtraBonusRow() {
 function refresh() {
   syncForm();
   buildActivityOptions();
-  buildRewardOptions();
   buildExtraBonusOptions();
   buildRequiredActivityOptions();
   showMessage("请设置每周目标、每项活动分值以及可用活动。若达到奖励阈值，可在首页领取奖励。");
@@ -506,13 +431,6 @@ saveSettingsButton.addEventListener("click", () => {
   const activeCount = activities.filter((item) => item.enabled).length;
   if (activeCount === 0) {
     showMessage("请至少开启一项可用活动。", true);
-    return;
-  }
-
-  const rewards = buildRewardsFromRows();
-  const activeRewardCount = rewards.filter((item) => item.enabled).length;
-  if (activeRewardCount === 0) {
-    showMessage("请至少启用一项奖励。", true);
     return;
   }
 
@@ -527,21 +445,13 @@ saveSettingsButton.addEventListener("click", () => {
     state.settings.rewardThreshold = thresholdValue;
   }
   state.settings.activities = activities;
-  state.settings.rewards = rewards;
   state.settings.extraBonuses = extraBonuses;
   state.settings.requiredActivities = buildRequiredActivitiesFromRows();
-  // weekly grand reward
-  state.settings.weeklyGrandReward = {
-    key: (state.settings.weeklyGrandReward && state.settings.weeklyGrandReward.key) || `grand`,
-    label: weeklyGrandLabelInput.value.trim() || '周大奖励',
-    enabled: !!weeklyGrandEnabledInput.checked,
-  };
   saveState();
   showMessage("设置已保存，返回计划页查看每日活动与奖励。");
 });
 
 addActivityButton.addEventListener("click", addActivityRow);
-addRewardButton.addEventListener("click", addRewardRow);
 const addExtraBonusButton = document.getElementById('add-extra-bonus');
 addExtraBonusButton.addEventListener('click', addExtraBonusRow);
 

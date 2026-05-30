@@ -210,17 +210,18 @@ function loadState() {
           extraBonuses,
           weeklyGrandReward: weeklyGrand,
         },
+        history: parsed.history || [],
       };
     }
   } catch (error) {
     console.warn("读取本地存储失败", error);
   }
-  return { settings: defaultSettings };
+  return { settings: defaultSettings, history: [] };
 }
 
 function saveState() {
   const raw = localStorage.getItem(storageKey);
-  let parsed = { plan: null, settings: defaultSettings };
+  let parsed = { plan: null, settings: defaultSettings, history: [] };
   try {
     if (raw) {
       parsed = JSON.parse(raw);
@@ -229,6 +230,7 @@ function saveState() {
     console.warn("读取本地存储失败", error);
   }
   parsed.settings = state.settings;
+  parsed.history = state.history;
   parsed.updatedAt = Date.now();
   localStorage.setItem(storageKey, JSON.stringify(parsed));
   saveSettingsToRemote(parsed).catch((error) => console.warn("Supabase 保存失败", error));

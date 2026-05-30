@@ -23,7 +23,10 @@
           <h2 id="week-plan-title">本周活动安排</h2>
           <p>选中完成的活动后会自动计分。每完成一项爸爸妈妈会选择加分。</p>
         </div>
-        <a class="btn btn-secondary" href="settings.html">前往设置页</a>
+        <div style="display: flex; gap: 12px;">
+          <button class="btn btn-secondary" id="view-history-btn">查看历史记录</button>
+          <a class="btn btn-secondary" href="settings.html">前往设置页</a>
+        </div>
       </div>
       <div class="table-wrap">
         <table class="plan-table">
@@ -42,6 +45,19 @@
         <div class="modal-body" id="reward-options"></div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" id="reward-modal-cancel">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="history-modal">
+      <div class="modal modal-large">
+        <div class="modal-header">
+          <h3>历史记录</h3>
+          <button type="button" class="modal-close" id="history-modal-close">×</button>
+        </div>
+        <div class="modal-body" id="history-content"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="history-modal-cancel">关闭</button>
         </div>
       </div>
     </div>
@@ -68,7 +84,7 @@
     </section>
 
     <footer class="app-footer">
-      <p>本原型使用本地存储，刷新后保留记录。用于晴天日常计划与复盘。</p>
+      <p>本原型使用Supabase数据库存储。用于晴天日常计划与复盘。</p>
     </footer>
   </div>
 

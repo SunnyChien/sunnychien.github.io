@@ -225,6 +225,7 @@ function loadState() {
           extraBonuses,
         },
         weeklyGrandRewardClaimed: parsed.weeklyGrandRewardClaimed || { claimed: false, rewardKey: null },
+        history: parsed.history || [],
       };
     }
   } catch (error) {
@@ -233,6 +234,7 @@ function loadState() {
   return {
     plan: createDefaultPlan(),
     settings: defaultSettings,
+    history: [],
   };
 }
 
@@ -670,3 +672,159 @@ appSupabaseReady
   .catch(() => {
     initializeSyncStatus();
   });
+
+function getCurrentWeekId() {
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNumber = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+  return `${now.getFullYear()}-W${weekNumber}`;
+}
+
+function getCurrentWeekDateRange() {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(now.setDate(diff));
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+  const formatDate = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
+  return `${formatDate(monday)} - ${formatDate(sunday)}`;
+}
+
+function autoArchiveIfNeeded() {
+  const lastArchivedWeekId = state.lastArchivedWeekId;
+  const currentWeekId = getCurrentWeekId();
+  
+  if (lastArchivedWeekId === currentWeekId) {
+    return;
+  }
+  
+  const now = new Date();
+  const today = now.getDay();
+  
+  if (today === 1 && state.plan && state.plan.length > 0) {
+    const hasAnyActivity = state.plan.some(day => 
+      Object.values(day.tasks || {}).some(v => v === true)
+    );
+    
+    if (hasAnyActivity) {
+      const lastWeekDate = new Date();
+      lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+      const day = lastWeekDate.getDay();
+      const diff = lastWeekDate.getDate() - day + (day === 0 ? -6 : 1);
+      const lastMonday = new Date(lastWeekDate.setDate(diff));
+      const lastSunday = new Date(lastMonday);
+      lastSunday.setDate(lastSunday.getDate() + 6);
+      const formatDate = (d) => `${d.getMonth() + 1}月${d.getDate()}日`;
+      const lastWeekRange = `${formatDate(lastMonday)} - ${formatDate(lastSunday)}`;
+      
+      const startOfYear = new Date(lastMonday.getFullYear(), 0, 1);
+      const weekNumber = Math.ceil(((lastMonday - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+      const weekId = `${lastMonday.getFullYear()}-W${weekNumber}`;
+      
+      const archiveData = {
+        id: weekId,
+        weekRange: lastWeekRange,
+        archivedAt: Date.now(),
+        plan: state.plan,
+        settings: state.settings,
+        totalPoints: getTotalPoints(),
+        weeklyGoal: state.settings.weeklyGoal,
+        weeklyGrandRewardClaimed: state.weeklyGrandRewardClaimed,
+      };
+      
+      if (!state.history.some(h => h.id === archiveData.id)) {
+        state.history.unshift(archiveData);
+      }
+      
+      state.lastArchivedWeekId = currentWeekId;
+      state.plan = createDefaultPlan();
+      state.weeklyGrandRewardClaimed = { claimed: false, rewardKey: null };
+      
+      saveState();
+      refresh();
+    }
+  }
+}
+
+function openHistoryModal() {
+  renderHistoryContent();
+  document.getElementById('history-modal').classList.remove('hidden');
+}
+
+function closeHistoryModal() {
+  document.getElementById('history-modal').classList.add('hidden');
+}
+
+function renderHistoryContent() {
+  const container = document.getElementById('history-content');
+  
+  if (!state.history || state.history.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">暂无历史记录，点击"归档本周"按钮来保存当前周的数据。</p>';
+    return;
+  }
+  
+  let html = '';
+  state.history.forEach((week, weekIndex) => {
+    const reachedGoal = week.totalPoints >= week.weeklyGoal;
+    html += `
+      <div class="history-week-card" style="border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 16px; overflow: hidden;">
+        <div class="history-week-header" style="background: #f9fafb; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb;">
+          <div>
+            <h4 style="margin: 0; font-size: 16px; color: #1f2937;">${week.weekRange}</h4>
+            <p style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">归档时间：${new Date(week.archivedAt).toLocaleString('zh-CN')}</p>
+          </div>
+          <div class="history-week-score" style="text-align: right;">
+            <span style="font-size: 24px; font-weight: bold; color: ${reachedGoal ? '#10b981' : '#ef4444'};">${week.totalPoints}</span>
+            <span style="color: #6b7280;"> / ${week.weeklyGoal} 分</span>
+            ${reachedGoal ? '<span style="margin-left: 8px; color: #10b981; font-weight: 500;">✓ 达标</span>' : '<span style="margin-left: 8px; color: #ef4444; font-weight: 500;">未达标</span>'}
+          </div>
+        </div>
+        <div class="history-week-details" style="padding: 16px;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #4b5563;">日期</th>
+                <th style="text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #4b5563;">完成活动</th>
+                <th style="text-align: right; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #4b5563;">得分</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    week.plan.forEach((day) => {
+      const activeActivities = week.settings.activities.filter(a => a.enabled);
+      const completedActivities = activeActivities.filter(a => day.tasks[a.key]);
+      const dayPoints = completedActivities.reduce((sum, a) => sum + a.score, 0);
+      
+      const completedLabels = completedActivities.map(a => a.label).join('、') || '无';
+      
+      html += `
+        <tr>
+          <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; font-size: 14px;">${day.day}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #6b7280;">${completedLabels}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align: right; font-size: 14px; font-weight: 500;">${dayPoints} 分</td>
+        </tr>
+      `;
+    });
+    
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+document.getElementById('view-history-btn').addEventListener('click', openHistoryModal);
+document.getElementById('history-modal-close').addEventListener('click', closeHistoryModal);
+document.getElementById('history-modal-cancel').addEventListener('click', closeHistoryModal);
+document.getElementById('history-modal').addEventListener('click', (e) => {
+  if (e.target.id === 'history-modal') closeHistoryModal();
+});
+
+// 页面加载时自动检查是否需要归档
+autoArchiveIfNeeded();

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>晴天的时间安排表</title>
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
   <div class="app-shell">
@@ -24,9 +24,9 @@
           <p>选中完成的活动后会自动计分。每完成一项爸爸妈妈会选择加分。</p>
         </div>
         <div style="display: flex; gap: 12px;">
-          <button class="btn btn-secondary" id="view-history-btn">查看历史记录</button>
+          <button class="btn btn-secondary" id="view-history-btn">历史记录</button>
           <a class="btn btn-secondary" href="reward-shop.html">奖励商店</a>
-          <a class="btn btn-secondary" href="settings.html">前往设置页</a>
+          <a class="btn btn-secondary" href="settings.html">活动设置</a>
         </div>
       </div>
       <div class="table-wrap">
@@ -47,6 +47,19 @@
         <div class="modal-body" id="reward-options"></div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" id="reward-modal-cancel">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="grand-reward-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>🏆 本周大奖励</h3>
+          <button type="button" class="modal-close" id="grand-reward-modal-close">×</button>
+        </div>
+        <div class="modal-body" id="grand-reward-options"></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" id="grand-reward-modal-cancel">取消</button>
         </div>
       </div>
     </div>
@@ -90,8 +103,8 @@
     </footer>
   </div>
 
-  <script src="supabase-loader.js?v=2"></script>
-  <script src="supabase-config.js?v=2"></script>
-  <script src="app.js?v=2"></script>
+  <script src="supabase-loader.js?v=6"></script>
+  <script src="supabase-config.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

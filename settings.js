@@ -18,7 +18,7 @@ const defaultSettings = {
   rewards: defaultRewards,
   extraBonuses: [],
   requiredActivities: [],
-  weeklyGrandReward: { key: 'grand', label: '周大奖励', enabled: false },
+  weeklyGrandRewards: [{ key: 'grand', label: '周大奖励', weeklyLimit: 1, enabled: false }],
 };
 
 const storageKey = "study-planner-data";
@@ -194,13 +194,25 @@ function loadState() {
         requiredCount: Number(item.requiredCount) > 0 ? Number(item.requiredCount) : 1,
         enabled: item.enabled !== false,
       }));
-      const weeklyGrand = savedSettings.weeklyGrandReward
-        ? {
-            key: savedSettings.weeklyGrandReward.key || 'grand',
-            label: savedSettings.weeklyGrandReward.label || '周大奖励',
-            enabled: savedSettings.weeklyGrandReward.enabled === true,
-          }
-        : defaultSettings.weeklyGrandReward;
+      let weeklyGrandRewards;
+      if (Array.isArray(savedSettings.weeklyGrandRewards)) {
+        weeklyGrandRewards = savedSettings.weeklyGrandRewards.map((item) => ({
+          key: item.key || `grand-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          label: item.label || '周大奖励',
+          weeklyLimit: Number(item.weeklyLimit) > 0 ? Number(item.weeklyLimit) : 1,
+          enabled: item.enabled === true,
+        }));
+      } else if (savedSettings.weeklyGrandReward && typeof savedSettings.weeklyGrandReward === 'object') {
+        const old = savedSettings.weeklyGrandReward;
+        weeklyGrandRewards = [{
+          key: old.key || 'grand',
+          label: old.label || '周大奖励',
+          weeklyLimit: Number(old.weeklyLimit) > 0 ? Number(old.weeklyLimit) : 1,
+          enabled: old.enabled === true,
+        }];
+      } else {
+        weeklyGrandRewards = defaultSettings.weeklyGrandRewards.map((item) => ({ ...item }));
+      }
       return {
         settings: {
           ...defaultSettings,
@@ -213,7 +225,7 @@ function loadState() {
           rewards,
           extraBonuses,
           requiredActivities,
-          weeklyGrandReward: weeklyGrand,
+          weeklyGrandRewards,
         },
         history: parsed.history || [],
       };

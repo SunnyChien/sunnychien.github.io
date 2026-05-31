@@ -11,6 +11,10 @@ const defaultRewards = [
   { key: "snack", label: "吃零食", weeklyLimit: 3, enabled: true },
 ];
 
+const defaultWeeklyGrandRewards = [
+  { key: 'grand', label: '周大奖励', weeklyLimit: 1, enabled: false },
+];
+
 const defaultSettings = {
   weeklyGoal: 100,
   rewardThreshold: 30,
@@ -18,7 +22,7 @@ const defaultSettings = {
   rewards: defaultRewards,
   extraBonuses: [],
   requiredActivities: [],
-  weeklyGrandReward: { key: 'grand', label: '周大奖励', weeklyLimit: 1, enabled: false },
+  weeklyGrandRewards: defaultWeeklyGrandRewards,
 };
 
 const storageKey = "study-planner-data";
@@ -119,10 +123,32 @@ async function syncSettingsFromRemote() {
   }
 }
 
+function migrateGrandReward(savedSettings) {
+  if (Array.isArray(savedSettings.weeklyGrandRewards)) {
+    return savedSettings.weeklyGrandRewards.map((item) => ({
+      key: item.key || `grand-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      label: item.label || '周大奖励',
+      weeklyLimit: Number(item.weeklyLimit) > 0 ? Number(item.weeklyLimit) : 1,
+      enabled: item.enabled === true,
+    }));
+  }
+  if (savedSettings.weeklyGrandReward && typeof savedSettings.weeklyGrandReward === 'object') {
+    const old = savedSettings.weeklyGrandReward;
+    return [{
+      key: old.key || 'grand',
+      label: old.label || '周大奖励',
+      weeklyLimit: Number(old.weeklyLimit) > 0 ? Number(old.weeklyLimit) : 1,
+      enabled: old.enabled === true,
+    }];
+  }
+  return defaultWeeklyGrandRewards.map((item) => ({ ...item }));
+}
+
 const dailyRewardsGrid = document.getElementById("daily-rewards-grid");
 const weeklyGrandGrid = document.getElementById("weekly-grand-grid");
 const saveButton = document.getElementById("save-reward-shop");
 const addDailyRewardButton = document.getElementById("add-daily-reward");
+const addWeeklyGrandButton = document.getElementById("add-weekly-grand");
 const messageBox = document.getElementById("reward-shop-message");
 
 let state = {};
@@ -140,20 +166,13 @@ function loadStateFromStorage() {
         weeklyLimit: Number(item.weeklyLimit) > 0 ? Number(item.weeklyLimit) : 1,
         enabled: item.enabled !== false,
       }));
-      const weeklyGrand = savedSettings.weeklyGrandReward
-        ? {
-            key: savedSettings.weeklyGrandReward.key || 'grand',
-            label: savedSettings.weeklyGrandReward.label || '周大奖励',
-            weeklyLimit: Number(savedSettings.weeklyGrandReward.weeklyLimit) > 0 ? Number(savedSettings.weeklyGrandReward.weeklyLimit) : 1,
-            enabled: savedSettings.weeklyGrandReward.enabled === true,
-          }
-        : { ...defaultSettings.weeklyGrandReward };
+      const weeklyGrandRewards = migrateGrandReward(savedSettings);
       state = {
         settings: {
           ...defaultSettings,
           ...savedSettings,
           rewards,
-          weeklyGrandReward: weeklyGrand,
+          weeklyGrandRewards,
         },
       };
       return;
@@ -204,26 +223,20 @@ function createRewardCard(reward, isGrand) {
   countWrap.appendChild(countInput);
   countWrap.appendChild(countLabel);
 
-  if (!isGrand) {
-    const deleteButton = document.createElement("button");
-    deleteButton.type = "button";
-    deleteButton.className = "btn btn-delete";
-    deleteButton.textContent = "删除";
-    deleteButton.addEventListener("click", () => {
-      if (confirm(`确认删除奖励「${nameInput.value}」？`)) {
-        card.remove();
-      }
-    });
-    card.appendChild(enabledToggle);
-    card.appendChild(nameInput);
-    card.appendChild(countWrap);
-    card.appendChild(deleteButton);
-  } else {
-    card.appendChild(enabledToggle);
-    card.appendChild(nameInput);
-    card.appendChild(countWrap);
-  }
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.className = "btn btn-delete";
+  deleteButton.textContent = "删除";
+  deleteButton.addEventListener("click", () => {
+    if (confirm(`确认删除奖励「${nameInput.value}」？`)) {
+      card.remove();
+    }
+  });
 
+  card.appendChild(enabledToggle);
+  card.appendChild(nameInput);
+  card.appendChild(countWrap);
+  card.appendChild(deleteButton);
   return card;
 }
 
@@ -234,10 +247,11 @@ function buildDailyRewardCards() {
   });
 }
 
-function buildWeeklyGrandCard() {
+function buildWeeklyGrandCards() {
   weeklyGrandGrid.innerHTML = "";
-  const grand = state.settings.weeklyGrandReward || defaultSettings.weeklyGrandReward;
-  weeklyGrandGrid.appendChild(createRewardCard(grand, true));
+  (state.settings.weeklyGrandRewards || []).forEach((reward) => {
+    weeklyGrandGrid.appendChild(createRewardCard(reward, true));
+  });
 }
 
 function buildDailyRewardsFromCards() {
@@ -251,18 +265,15 @@ function buildDailyRewardsFromCards() {
   });
 }
 
-function buildWeeklyGrandFromCard() {
-  const card = weeklyGrandGrid.querySelector('.reward-card');
-  if (!card) return state.settings.weeklyGrandReward || defaultSettings.weeklyGrandReward;
-  const enabled = card.querySelector('.reward-enabled').checked;
-  const label = card.querySelector('.reward-card-name').value.trim() || '周大奖励';
-  const weeklyLimit = Number(card.querySelector('.reward-card-count input').value) || 1;
-  return {
-    key: card.dataset.key || 'grand',
-    label,
-    weeklyLimit,
-    enabled,
-  };
+function buildWeeklyGrandFromCards() {
+  const cards = Array.from(weeklyGrandGrid.querySelectorAll('.reward-card'));
+  return cards.map((card, index) => {
+    const key = card.dataset.key || `grand-${Date.now()}-${index}`;
+    const enabled = card.querySelector('.reward-enabled').checked;
+    const label = card.querySelector('.reward-card-name').value.trim() || `大奖励 ${index + 1}`;
+    const weeklyLimit = Number(card.querySelector('.reward-card-count input').value) || 1;
+    return { key, label, weeklyLimit, enabled };
+  });
 }
 
 function addDailyRewardCard() {
@@ -275,9 +286,19 @@ function addDailyRewardCard() {
   dailyRewardsGrid.appendChild(createRewardCard(newReward, false));
 }
 
+function addWeeklyGrandCard() {
+  const newGrand = {
+    key: `grand-${Date.now()}`,
+    label: "新大奖励",
+    weeklyLimit: 1,
+    enabled: true,
+  };
+  weeklyGrandGrid.appendChild(createRewardCard(newGrand, true));
+}
+
 function refresh() {
   buildDailyRewardCards();
-  buildWeeklyGrandCard();
+  buildWeeklyGrandCards();
   showMessage("编辑奖励名称和数量后，点击保存。");
 }
 
@@ -289,7 +310,7 @@ saveButton.addEventListener("click", () => {
     return;
   }
 
-  const weeklyGrandReward = buildWeeklyGrandFromCard();
+  const weeklyGrandRewards = buildWeeklyGrandFromCards();
 
   const raw = localStorage.getItem(storageKey);
   let parsed = { plan: null, settings: defaultSettings, history: [] };
@@ -300,16 +321,18 @@ saveButton.addEventListener("click", () => {
   }
 
   parsed.settings.rewards = rewards;
-  parsed.settings.weeklyGrandReward = weeklyGrandReward;
+  parsed.settings.weeklyGrandRewards = weeklyGrandRewards;
+  delete parsed.settings.weeklyGrandReward;
 
   persistData(parsed);
   state.settings.rewards = rewards;
-  state.settings.weeklyGrandReward = weeklyGrandReward;
+  state.settings.weeklyGrandRewards = weeklyGrandRewards;
   saveSettingsToRemote(parsed);
   showMessage("奖励设置已保存！");
 });
 
 addDailyRewardButton.addEventListener("click", addDailyRewardCard);
+addWeeklyGrandButton.addEventListener("click", addWeeklyGrandCard);
 
 refresh();
 

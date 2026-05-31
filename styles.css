@@ -55,6 +55,11 @@ input {
   font-weight: 700;
   min-width: 180px;
   text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .score-badge.reached {

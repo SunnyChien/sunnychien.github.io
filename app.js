@@ -27,6 +27,7 @@ const defaultSettings = {
   activities: defaultActivities,
   rewards: defaultRewards,
   requiredActivities: [],
+  weeklyGrandRewards: [{ key: 'grand', label: '周大奖励', weeklyLimit: 1, enabled: false }],
 };
 
 const storageKey = "study-planner-data";
@@ -81,6 +82,33 @@ async function saveStateToRemote() {
   }
 }
 
+function migrateRemoteState(remoteState, remoteUpdatedAt) {
+  const settings = remoteState.settings || {};
+  if (!Array.isArray(settings.weeklyGrandRewards)) {
+    if (settings.weeklyGrandReward && typeof settings.weeklyGrandReward === 'object') {
+      const old = settings.weeklyGrandReward;
+      settings.weeklyGrandRewards = [{
+        key: old.key || 'grand',
+        label: old.label || '周大奖励',
+        weeklyLimit: Number(old.weeklyLimit) > 0 ? Number(old.weeklyLimit) : 1,
+        enabled: old.enabled === true,
+      }];
+    } else {
+      settings.weeklyGrandRewards = defaultSettings.weeklyGrandRewards.map((item) => ({ ...item }));
+    }
+    delete settings.weeklyGrandReward;
+  }
+  if (!remoteState.weeklyGrandRewardsClaimed || typeof remoteState.weeklyGrandRewardsClaimed !== 'object' || Array.isArray(remoteState.weeklyGrandRewardsClaimed)) {
+    if (remoteState.weeklyGrandRewardClaimed && remoteState.weeklyGrandRewardClaimed.claimed && remoteState.weeklyGrandRewardClaimed.rewardKey) {
+      remoteState.weeklyGrandRewardsClaimed = { [remoteState.weeklyGrandRewardClaimed.rewardKey]: { claimed: true, timestamp: remoteState.weeklyGrandRewardClaimed.timestamp } };
+    } else {
+      remoteState.weeklyGrandRewardsClaimed = {};
+    }
+    delete remoteState.weeklyGrandRewardClaimed;
+  }
+  return { ...remoteState, settings, updatedAt: remoteUpdatedAt };
+}
+
 async function syncStateFromRemote() {
   if (!isSupabaseReady()) return;
   setSyncStatus("正在从 Supabase 获取最新数据...", "pending");
@@ -107,7 +135,7 @@ async function syncStateFromRemote() {
     const localUpdatedAt = Number(state.updatedAt) || 0;
 
     if (remoteUpdatedAt > localUpdatedAt) {
-      state = { ...remoteState, updatedAt: remoteUpdatedAt };
+      state = migrateRemoteState(remoteState, remoteUpdatedAt);
       saveState(false);
       refresh();
       setSyncStatus("已从 Supabase 拉取最新数据。", "connected");
@@ -171,6 +199,16 @@ function ensurePlanTasks(plan, activities) {
   return plan;
 }
 
+function migrateGrandClaimed(parsed) {
+  if (parsed.weeklyGrandRewardsClaimed && typeof parsed.weeklyGrandRewardsClaimed === 'object') {
+    return parsed.weeklyGrandRewardsClaimed;
+  }
+  if (parsed.weeklyGrandRewardClaimed && parsed.weeklyGrandRewardClaimed.claimed && parsed.weeklyGrandRewardClaimed.rewardKey) {
+    return { [parsed.weeklyGrandRewardClaimed.rewardKey]: { claimed: true, timestamp: parsed.weeklyGrandRewardClaimed.timestamp } };
+  }
+  return {};
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(storageKey);
@@ -210,6 +248,25 @@ function loadState() {
         requiredCount: Number(item.requiredCount) > 0 ? Number(item.requiredCount) : 1,
         enabled: item.enabled !== false,
       }));
+      let weeklyGrandRewards;
+      if (Array.isArray(savedSettings.weeklyGrandRewards)) {
+        weeklyGrandRewards = savedSettings.weeklyGrandRewards.map((item) => ({
+          key: item.key || `grand-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          label: item.label || '周大奖励',
+          weeklyLimit: Number(item.weeklyLimit) > 0 ? Number(item.weeklyLimit) : 1,
+          enabled: item.enabled === true,
+        }));
+      } else if (savedSettings.weeklyGrandReward && typeof savedSettings.weeklyGrandReward === 'object') {
+        const old = savedSettings.weeklyGrandReward;
+        weeklyGrandRewards = [{
+          key: old.key || 'grand',
+          label: old.label || '周大奖励',
+          weeklyLimit: Number(old.weeklyLimit) > 0 ? Number(old.weeklyLimit) : 1,
+          enabled: old.enabled === true,
+        }];
+      } else {
+        weeklyGrandRewards = defaultSettings.weeklyGrandRewards.map((item) => ({ ...item }));
+      }
       const activities = activitiesSource.map((item) => ({
         key: item.key,
         label: item.label || item.key,
@@ -232,8 +289,9 @@ function loadState() {
           rewards,
           extraBonuses,
           requiredActivities,
+          weeklyGrandRewards,
         },
-        weeklyGrandRewardClaimed: parsed.weeklyGrandRewardClaimed || { claimed: false, rewardKey: null },
+        weeklyGrandRewardsClaimed: migrateGrandClaimed(parsed),
         history: parsed.history || [],
       };
     }
@@ -289,31 +347,101 @@ function isWeeklyGoalReached() {
   return total >= goal;
 }
 
-function isWeeklyGrandClaimed() {
-  return !!(state.weeklyGrandRewardClaimed && state.weeklyGrandRewardClaimed.claimed);
+function isWeeklyGrandClaimed(rewardKey) {
+  if (!state.weeklyGrandRewardsClaimed) return false;
+  if (rewardKey) return !!(state.weeklyGrandRewardsClaimed[rewardKey] && state.weeklyGrandRewardsClaimed[rewardKey].claimed);
+  return Object.values(state.weeklyGrandRewardsClaimed).some(c => c && c.claimed);
 }
 
-function claimWeeklyGrandToggle() {
-  if (!state.weeklyGrandRewardClaimed) state.weeklyGrandRewardClaimed = { claimed: false, rewardKey: null };
-  if (!isWeeklyGrandClaimed()) {
-    const { allCompleted, details } = getRequiredActivitiesCompletion();
-    if (!allCompleted) {
-      const incompleteList = details.filter(d => !d.completed).map(d => `${d.activityLabel}（${d.completedCount}/${d.requiredCount}次）`).join('、');
-      alert(`还有必选活动未完成：${incompleteList}\n完成所有必选活动后才能领取本周大奖励！`);
-      return;
-    }
-    state.weeklyGrandRewardClaimed.claimed = true;
-    state.weeklyGrandRewardClaimed.rewardKey = state.settings.weeklyGrandReward ? state.settings.weeklyGrandReward.key : null;
-    state.weeklyGrandRewardClaimed.timestamp = Date.now();
-    saveState();
-    refresh();
-  } else {
-    if (confirm("取消本周大奖励领取？")) {
-      state.weeklyGrandRewardClaimed = { claimed: false, rewardKey: null };
-      saveState();
-      refresh();
-    }
+function getGrandRewardRemaining(grand) {
+  if (!state.weeklyGrandRewardsClaimed) return grand.weeklyLimit || 1;
+  const claimed = state.weeklyGrandRewardsClaimed[grand.key];
+  if (!claimed || !claimed.claimed) return grand.weeklyLimit || 1;
+  return (grand.weeklyLimit || 1) - 1;
+}
+
+function openGrandRewardModal() {
+  const modal = document.getElementById("grand-reward-modal");
+  const options = document.getElementById("grand-reward-options");
+  options.innerHTML = "";
+
+  const grands = (state.settings.weeklyGrandRewards || []).filter(g => g.enabled);
+  const { allCompleted } = getRequiredActivitiesCompletion();
+
+  if (!allCompleted) {
+    const { details } = getRequiredActivitiesCompletion();
+    const incompleteList = details.filter(d => !d.completed).map(d => `${d.activityLabel}（${d.completedCount}/${d.requiredCount}次）`).join('、');
+    const msg = document.createElement("p");
+    msg.textContent = `还有必选活动未完成：${incompleteList}\n完成所有必选活动后才能领取本周大奖励！`;
+    options.appendChild(msg);
+    modal.classList.remove("hidden");
+    return;
   }
+
+  const claimedGrands = grands.filter(g => isWeeklyGrandClaimed(g.key));
+  const unclaimedGrands = grands.filter(g => !isWeeklyGrandClaimed(g.key));
+
+  if (claimedGrands.length === 0 && unclaimedGrands.length === 0) {
+    const msg = document.createElement("p");
+    msg.textContent = "暂无可用的大奖励。";
+    options.appendChild(msg);
+    modal.classList.remove("hidden");
+    return;
+  }
+
+  claimedGrands.forEach((grand) => {
+    const item = document.createElement("div");
+    item.className = "reward-item";
+    const text = document.createElement("span");
+    text.textContent = `已领取：${grand.label}`;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = "取消领取";
+    button.addEventListener("click", () => {
+      if (!state.weeklyGrandRewardsClaimed) state.weeklyGrandRewardsClaimed = {};
+      state.weeklyGrandRewardsClaimed[grand.key] = { claimed: false };
+      saveState();
+      closeGrandRewardModal();
+      openGrandRewardModal();
+    });
+    item.appendChild(text);
+    item.appendChild(button);
+    options.appendChild(item);
+  });
+
+  if (unclaimedGrands.length > 0) {
+    unclaimedGrands.forEach((grand) => {
+      const item = document.createElement("div");
+      item.className = "reward-item";
+      const text = document.createElement("span");
+      text.textContent = grand.label;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "选择";
+      button.addEventListener("click", () => {
+        if (!state.weeklyGrandRewardsClaimed) state.weeklyGrandRewardsClaimed = {};
+        state.weeklyGrandRewardsClaimed[grand.key] = { claimed: true, timestamp: Date.now() };
+        saveState();
+        closeGrandRewardModal();
+        refresh();
+      });
+      item.appendChild(text);
+      item.appendChild(button);
+      options.appendChild(item);
+    });
+  } else if (claimedGrands.length > 0) {
+    const hint = document.createElement("p");
+    hint.style.marginTop = "12px";
+    hint.style.color = "#64748b";
+    hint.textContent = "所有大奖励已领取，可取消后重新选择。";
+    options.appendChild(hint);
+  }
+
+  modal.classList.remove("hidden");
+}
+
+function closeGrandRewardModal() {
+  document.getElementById("grand-reward-modal").classList.add("hidden");
 }
 
 function renderWeeklyScoreBadge(totalPoints, weeklyGoal) {
@@ -321,22 +449,25 @@ function renderWeeklyScoreBadge(totalPoints, weeklyGoal) {
   const { allCompleted } = getRequiredActivitiesCompletion();
   weeklyScore.classList.toggle('reached', totalPoints >= weeklyGoal && allCompleted);
   weeklyScore.innerHTML = `<div class="badge-text">${totalPoints} / ${weeklyGoal} 分</div>`;
-  const grand = state.settings.weeklyGrandReward;
-  if (totalPoints >= weeklyGoal && grand && grand.enabled) {
+  const grands = state.settings.weeklyGrandRewards || [];
+  const enabledGrands = grands.filter(g => g.enabled);
+  if (totalPoints >= weeklyGoal && enabledGrands.length > 0) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-save';
-    if (isWeeklyGrandClaimed()) {
-      btn.textContent = `已领取：${grand.label}`;
+    btn.style.marginTop = '8px';
+    const claimedCount = enabledGrands.filter(g => isWeeklyGrandClaimed(g.key)).length;
+    if (claimedCount === enabledGrands.length) {
+      btn.textContent = '大奖励已领取';
     } else if (!allCompleted) {
-      btn.textContent = '必选活动未完成';
+      btn.textContent = '🏆 大奖励（必选活动未完成）';
       btn.disabled = true;
       btn.style.opacity = '0.6';
       btn.style.cursor = 'not-allowed';
     } else {
-      btn.textContent = '领取本周大奖励';
+      btn.textContent = '🏆 领取本周大奖励';
     }
-    btn.addEventListener('click', claimWeeklyGrandToggle);
+    btn.addEventListener('click', () => openGrandRewardModal());
     weeklyScore.appendChild(btn);
   }
 }
@@ -739,6 +870,15 @@ function attachRewardModalHandlers() {
       closeRewardModal();
     }
   });
+
+  const grandModal = document.getElementById("grand-reward-modal");
+  document.getElementById("grand-reward-modal-close").addEventListener("click", closeGrandRewardModal);
+  document.getElementById("grand-reward-modal-cancel").addEventListener("click", closeGrandRewardModal);
+  grandModal.addEventListener("click", (event) => {
+    if (event.target === grandModal) {
+      closeGrandRewardModal();
+    }
+  });
 }
 
 renderDateHeader();
@@ -810,7 +950,7 @@ function autoArchiveIfNeeded() {
         settings: JSON.parse(JSON.stringify(state.settings)),
         totalPoints: getTotalPoints(),
         weeklyGoal: state.settings.weeklyGoal,
-        weeklyGrandRewardClaimed: JSON.parse(JSON.stringify(state.weeklyGrandRewardClaimed)),
+        weeklyGrandRewardsClaimed: JSON.parse(JSON.stringify(state.weeklyGrandRewardsClaimed || {})),
       };
       
       if (!state.history.some(h => h.id === archiveData.id)) {
@@ -819,7 +959,7 @@ function autoArchiveIfNeeded() {
       
       state.lastArchivedWeekId = currentWeekId;
       state.plan = createDefaultPlan();
-      state.weeklyGrandRewardClaimed = { claimed: false, rewardKey: null };
+      state.weeklyGrandRewardsClaimed = {};
       
       saveState();
       refresh();

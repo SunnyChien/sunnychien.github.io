@@ -195,6 +195,121 @@ input {
   min-width: 120px;
 }
 
+.progress-tracker {
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-label {
+  min-width: 80px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.progress-bar-wrap {
+  flex: 1;
+  position: relative;
+  height: 28px;
+  background: #f1f5f9;
+  border-radius: 14px;
+  overflow: visible;
+  border: 1px solid #e2e8f0;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 14px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.progress-bar-fill.avg {
+  background: linear-gradient(90deg, #e0f2fe, #bae6fd);
+}
+
+.progress-bar-fill.last-week {
+  background: linear-gradient(90deg, #fef3c7, #fde68a);
+}
+
+.progress-bar-fill.this-week {
+  background: linear-gradient(90deg, #d1fae5, #6ee7b7);
+}
+
+.progress-runner {
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+  z-index: 2;
+  transition: right 0.5s ease;
+}
+
+.progress-runner.at-start {
+  right: auto;
+  left: -2px;
+}
+
+.progress-percent {
+  min-width: 52px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #334155;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.progress-goal-line {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #94a3b8;
+  z-index: 1;
+}
+
+.progress-goal-line::after {
+  content: "🎯";
+  position: absolute;
+  top: -20px;
+  right: -8px;
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .progress-label {
+    min-width: 64px;
+    font-size: 0.8rem;
+  }
+
+  .progress-bar-wrap {
+    height: 24px;
+  }
+
+  .progress-runner {
+    font-size: 18px;
+  }
+
+  .progress-percent {
+    min-width: 44px;
+    font-size: 0.8rem;
+  }
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

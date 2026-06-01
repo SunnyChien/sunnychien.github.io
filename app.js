@@ -818,6 +818,78 @@ function getRequiredActivitiesCompletion() {
   return { allCompleted, details };
 }
 
+function renderProgressTracker() {
+  const container = document.getElementById('progress-tracker');
+  if (!container) return;
+
+  const weeklyGoal = state.settings.weeklyGoal || defaultSettings.weeklyGoal;
+  const todayIndex = getTodayColumnIndex();
+  const dayOfWeek = todayIndex + 1;
+  const totalDays = 7;
+
+  const avgPercent = Math.round((dayOfWeek / totalDays) * 100);
+
+  let lastWeekPercent = 0;
+  let lastWeekLabel = '0%';
+  if (state.history && state.history.length > 0) {
+    const lastWeek = state.history[0];
+    const lastWeekGoal = lastWeek.weeklyGoal || weeklyGoal;
+    let lastWeekPointsByToday = 0;
+    if (lastWeek.plan) {
+      for (let i = 0; i <= todayIndex && i < lastWeek.plan.length; i++) {
+        const day = lastWeek.plan[i];
+        const activities = (lastWeek.settings && lastWeek.settings.activities) || [];
+        const activeActs = activities.filter(a => a.enabled);
+        const dayPts = activeActs.reduce((sum, a) => sum + (day.tasks && day.tasks[a.key] ? a.score : 0), 0);
+        lastWeekPointsByToday += dayPts;
+      }
+      const lastWeekExtras = (lastWeek.settings && lastWeek.settings.extraBonuses) || [];
+      lastWeekExtras.forEach(rule => {
+        if (!rule.enabled || Number(rule.requiredCount) <= 0 || Number(rule.bonusPoints) <= 0) return;
+        let count = 0;
+        for (let i = 0; i <= todayIndex && i < lastWeek.plan.length; i++) {
+          if (lastWeek.plan[i].tasks && lastWeek.plan[i].tasks[rule.activityKey]) count += 1;
+        }
+        const times = Math.floor(count / Number(rule.requiredCount));
+        lastWeekPointsByToday += times * (Number(rule.bonusPoints) || 0);
+      });
+    }
+    lastWeekPercent = lastWeekGoal > 0 ? Math.min(Math.round((lastWeekPointsByToday / lastWeekGoal) * 100), 100) : 0;
+    lastWeekLabel = `${lastWeekPointsByToday}/${lastWeekGoal}`;
+  } else {
+    lastWeekLabel = '暂无数据';
+  }
+
+  const thisWeekPoints = getTotalPoints();
+  const thisWeekPercent = weeklyGoal > 0 ? Math.min(Math.round((thisWeekPoints / weeklyGoal) * 100), 100) : 0;
+  const thisWeekLabel = `${thisWeekPoints}/${weeklyGoal}`;
+
+  const bars = [
+    { label: '平均进度', percent: avgPercent, display: `${dayOfWeek}/${totalDays}`, cls: 'avg', runner: '🏃' },
+    { label: '上周同期', percent: lastWeekPercent, display: lastWeekLabel, cls: 'last-week', runner: '🏃‍♀️' },
+    { label: '本周进度', percent: thisWeekPercent, display: thisWeekLabel, cls: 'this-week', runner: '🏃‍♂️' },
+  ];
+
+  let html = '<div class="progress-tracker">';
+  bars.forEach(bar => {
+    const fillWidth = Math.max(bar.percent, 0);
+    const runnerClass = fillWidth === 0 ? 'progress-runner at-start' : 'progress-runner';
+    html += `
+      <div class="progress-row">
+        <span class="progress-label">${bar.label}</span>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill ${bar.cls}" style="width: ${fillWidth}%;">
+            <span class="${runnerClass}">${bar.runner}</span>
+          </div>
+          <div class="progress-goal-line"></div>
+        </div>
+        <span class="progress-percent">${bar.display}</span>
+      </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
 function renderRequiredActivitiesStatus() {
   const container = document.getElementById('required-activities-status');
   if (!container) return;
@@ -858,6 +930,7 @@ function renderRequiredActivitiesStatus() {
 function refresh() {
   buildTable();
   buildSummary();
+  renderProgressTracker();
   renderRequiredActivitiesStatus();
 }
 

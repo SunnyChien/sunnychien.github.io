@@ -85,7 +85,7 @@ async function saveStateToRemote() {
 
 function migrateRemoteState(remoteState, remoteUpdatedAt) {
   const settings = remoteState.settings || {};
-  if (!Array.isArray(settings.weeklyGrandRewards)) {
+  if (!Array.isArray(settings.weeklyGrandRewards) || settings.weeklyGrandRewards.length === 0) {
     if (settings.weeklyGrandReward && typeof settings.weeklyGrandReward === 'object') {
       const old = settings.weeklyGrandReward;
       settings.weeklyGrandRewards = [{
@@ -94,7 +94,7 @@ function migrateRemoteState(remoteState, remoteUpdatedAt) {
         weeklyLimit: Number(old.weeklyLimit) > 0 ? Number(old.weeklyLimit) : 1,
         enabled: old.enabled === true,
       }];
-    } else {
+    } else if (!Array.isArray(settings.weeklyGrandRewards)) {
       settings.weeklyGrandRewards = defaultSettings.weeklyGrandRewards.map((item) => ({ ...item }));
     }
     delete settings.weeklyGrandReward;
@@ -250,7 +250,7 @@ function loadState() {
         enabled: item.enabled !== false,
       }));
       let weeklyGrandRewards;
-      if (Array.isArray(savedSettings.weeklyGrandRewards)) {
+      if (Array.isArray(savedSettings.weeklyGrandRewards) && savedSettings.weeklyGrandRewards.length > 0) {
         weeklyGrandRewards = savedSettings.weeklyGrandRewards.map((item) => ({
           key: item.key || `grand-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
           label: item.label || '周大奖励',
@@ -265,6 +265,8 @@ function loadState() {
           weeklyLimit: Number(old.weeklyLimit) > 0 ? Number(old.weeklyLimit) : 1,
           enabled: old.enabled === true,
         }];
+      } else if (Array.isArray(savedSettings.weeklyGrandRewards)) {
+        weeklyGrandRewards = [];
       } else {
         weeklyGrandRewards = defaultSettings.weeklyGrandRewards.map((item) => ({ ...item }));
       }
@@ -1083,6 +1085,7 @@ function renderHistoryContent() {
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #4b5563;">日期</th>
                 <th style="text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #4b5563;">完成活动</th>
                 <th style="text-align: right; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #4b5563;">得分</th>
+                <th style="text-align: center; padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #4b5563;">每日奖励</th>
               </tr>
             </thead>
             <tbody>
@@ -1095,14 +1098,23 @@ function renderHistoryContent() {
       
       const completedLabels = completedActivities.map(a => a.label).join('、') || '无';
       
+      const rewardList = week.settings.rewards || [];
+      const rewardLabel = day.reward ? (rewardList.find(r => r.key === day.reward) || {}).label || day.reward : '';
+      
       html += `
         <tr>
           <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; font-size: 14px;">${day.day}</td>
           <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; font-size: 14px; color: #6b7280;">${completedLabels}</td>
           <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align: right; font-size: 14px; font-weight: 500;">${dayPoints} 分</td>
+          <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; text-align: center; font-size: 13px;">${rewardLabel ? `<span style="color: #6366f1; font-weight: 500;">🎁 ${rewardLabel}</span>` : '<span style="color: #d1d5db;">—</span>'}</td>
         </tr>
       `;
     });
+
+    html += `
+            </tbody>
+          </table>
+    `;
 
     const historyExtras = (week.settings.extraBonuses || []).filter(r => r.enabled && Number(r.requiredCount) > 0 && Number(r.bonusPoints) > 0);
     const extraDetails = [];
@@ -1123,7 +1135,6 @@ function renderHistoryContent() {
     });
     if (extraDetails.length > 0) {
       html += `
-          </table>
           <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #d1d5db;">
             <h5 style="margin: 0 0 8px; font-size: 13px; color: #6366f1;">额外加分</h5>
       `;
@@ -1132,15 +1143,45 @@ function renderHistoryContent() {
       });
       html += `<div style="font-size: 13px; font-weight: 600; color: #6366f1; margin-top: 4px;">额外加分合计：${extraTotal} 分</div>`;
       html += `</div>`;
-    } else {
-      html += `
-          </table>
-        `;
+    }
+
+    let grandRewards = week.settings.weeklyGrandRewards || [];
+    let grandClaimed = week.weeklyGrandRewardsClaimed || {};
+    if (grandRewards.length === 0 && week.settings.weeklyGrandReward && typeof week.settings.weeklyGrandReward === 'object') {
+      const old = week.settings.weeklyGrandReward;
+      grandRewards = [{
+        key: old.key || 'grand',
+        label: old.label || '周大奖励',
+        weeklyLimit: Number(old.weeklyLimit) > 0 ? Number(old.weeklyLimit) : 1,
+        enabled: old.enabled === true,
+      }];
+    }
+    if (Object.keys(grandClaimed).length === 0 && week.weeklyGrandRewardClaimed) {
+      const oldClaimed = week.weeklyGrandRewardClaimed;
+      if (oldClaimed.claimed && oldClaimed.rewardKey) {
+        grandClaimed = { [oldClaimed.rewardKey]: { claimed: true, timestamp: oldClaimed.timestamp } };
+      }
+    }
+    const enabledGrandRewards = grandRewards.filter(g => g.enabled);
+    const allGrandKeys = new Set(enabledGrandRewards.map(g => g.key));
+    Object.keys(grandClaimed).forEach(k => allGrandKeys.add(k));
+    if (allGrandKeys.size > 0) {
+      html += `<div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #d1d5db;">`;
+      html += `<h5 style="margin: 0 0 8px; font-size: 13px; color: #f59e0b;">🏆 本周大奖励</h5>`;
+      allGrandKeys.forEach(key => {
+        const reward = grandRewards.find(g => g.key === key);
+        const label = reward ? reward.label : key;
+        const claimed = grandClaimed[key] && grandClaimed[key].claimed;
+        if (claimed) {
+          html += `<div style="font-size: 13px; color: #10b981; margin-bottom: 4px;">✅ ${label}：已领取</div>`;
+        } else {
+          html += `<div style="font-size: 13px; color: #9ca3af; margin-bottom: 4px;">⬜ ${label}：未领取</div>`;
+        }
+      });
+      html += `</div>`;
     }
     
     html += `
-            </tbody>
-          </table>
         </div>
       </div>
     `;

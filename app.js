@@ -63,10 +63,11 @@ function isSupabaseReady() {
 async function saveStateToRemote() {
   if (!isSupabaseReady()) return;
 
+  const now = Date.now();
   const payload = {
     id: SUPABASE_STATE_ID,
     state,
-    updated_at: new Date().toISOString(),
+    updated_at: new Date(now).toISOString(),
   };
   setSyncStatus("正在将数据保存到 Supabase...", "pending");
 
@@ -293,6 +294,8 @@ function loadState() {
         },
         weeklyGrandRewardsClaimed: migrateGrandClaimed(parsed),
         history: parsed.history || [],
+        updatedAt: parsed.updatedAt || null,
+        lastArchivedWeekId: parsed.lastArchivedWeekId || null,
       };
     }
   } catch (error) {
@@ -881,7 +884,7 @@ function renderProgressTracker() {
           <div class="progress-bar-fill ${bar.cls}" style="width: ${fillWidth}%;">
             <span class="${runnerClass}">${bar.runner}</span>
           </div>
-          <div class="progress-goal-line"></div>
+          <span class="progress-goal-mark">🚩</span>
         </div>
         <span class="progress-percent">${bar.display}</span>
       </div>`;

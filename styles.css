@@ -196,10 +196,11 @@ input {
 }
 
 .progress-tracker {
+  margin-top: 18px;
   margin-bottom: 18px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .progress-row {
@@ -220,16 +221,16 @@ input {
 .progress-bar-wrap {
   flex: 1;
   position: relative;
-  height: 28px;
+  height: 24px;
   background: #f1f5f9;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: visible;
   border: 1px solid #e2e8f0;
 }
 
 .progress-bar-fill {
   height: 100%;
-  border-radius: 14px;
+  border-radius: 12px;
   transition: width 0.5s ease;
   position: relative;
 }
@@ -248,10 +249,10 @@ input {
 
 .progress-runner {
   position: absolute;
-  right: -14px;
+  right: -12px;
   top: 50%;
-  transform: translateY(-50%);
-  font-size: 22px;
+  transform: translateY(-50%) scaleX(-1);
+  font-size: 20px;
   line-height: 1;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
   z-index: 2;
@@ -260,7 +261,7 @@ input {
 
 .progress-runner.at-start {
   right: auto;
-  left: -2px;
+  left: 2px;
 }
 
 .progress-percent {
@@ -272,22 +273,15 @@ input {
   white-space: nowrap;
 }
 
-.progress-goal-line {
+.progress-goal-mark {
   position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: #94a3b8;
-  z-index: 1;
-}
-
-.progress-goal-line::after {
-  content: "🎯";
-  position: absolute;
-  top: -20px;
-  right: -8px;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   font-size: 14px;
+  line-height: 1;
+  z-index: 1;
+  opacity: 0.7;
 }
 
 @media (max-width: 760px) {
@@ -297,11 +291,15 @@ input {
   }
 
   .progress-bar-wrap {
-    height: 24px;
+    height: 20px;
   }
 
   .progress-runner {
-    font-size: 18px;
+    font-size: 16px;
+  }
+
+  .progress-goal-mark {
+    font-size: 12px;
   }
 
   .progress-percent {

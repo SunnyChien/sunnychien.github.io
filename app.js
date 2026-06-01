@@ -1027,6 +1027,40 @@ function renderHistoryContent() {
         </tr>
       `;
     });
+
+    const historyExtras = (week.settings.extraBonuses || []).filter(r => r.enabled && Number(r.requiredCount) > 0 && Number(r.bonusPoints) > 0);
+    const extraDetails = [];
+    let extraTotal = 0;
+    historyExtras.forEach((rule) => {
+      let count = 0;
+      week.plan.forEach((day) => {
+        if (day.tasks && day.tasks[rule.activityKey]) count += 1;
+      });
+      const times = Math.floor(count / Number(rule.requiredCount));
+      const points = times * (Number(rule.bonusPoints) || 0);
+      if (points > 0) {
+        const act = (week.settings.activities || []).find(a => a.key === rule.activityKey);
+        const name = act ? act.label : rule.activityKey;
+        extraDetails.push({ name, count, required: rule.requiredCount, points });
+        extraTotal += points;
+      }
+    });
+    if (extraDetails.length > 0) {
+      html += `
+          </table>
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #d1d5db;">
+            <h5 style="margin: 0 0 8px; font-size: 13px; color: #6366f1;">额外加分</h5>
+      `;
+      extraDetails.forEach((d) => {
+        html += `<div style="font-size: 13px; color: #4b5563; margin-bottom: 4px;">${d.name}: 完成 ${d.count}/${d.required} 次 → 获得 ${d.points} 分</div>`;
+      });
+      html += `<div style="font-size: 13px; font-weight: 600; color: #6366f1; margin-top: 4px;">额外加分合计：${extraTotal} 分</div>`;
+      html += `</div>`;
+    } else {
+      html += `
+          </table>
+        `;
+    }
     
     html += `
             </tbody>

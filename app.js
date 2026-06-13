@@ -99,10 +99,11 @@ function migrateRemoteState(remoteState, remoteUpdatedAt) {
     }
     delete settings.weeklyGrandReward;
   }
-  if (!remoteState.weeklyGrandRewardsClaimed || typeof remoteState.weeklyGrandRewardsClaimed !== 'object' || Array.isArray(remoteState.weeklyGrandRewardsClaimed)) {
-    if (remoteState.weeklyGrandRewardClaimed && remoteState.weeklyGrandRewardClaimed.claimed && remoteState.weeklyGrandRewardClaimed.rewardKey) {
-      remoteState.weeklyGrandRewardsClaimed = { [remoteState.weeklyGrandRewardClaimed.rewardKey]: { claimed: true, timestamp: remoteState.weeklyGrandRewardClaimed.timestamp } };
-    } else {
+  if (!remoteState.weeklyGrandRewardsClaimed || typeof remoteState.weeklyGrandRewardsClaimed !== 'object' || Array.isArray(remoteState.weeklyGrandRewardsClaimed) || Object.keys(remoteState.weeklyGrandRewardsClaimed).length === 0) {
+    if (remoteState.weeklyGrandRewardClaimed && remoteState.weeklyGrandRewardClaimed.claimed) {
+      const key = remoteState.weeklyGrandRewardClaimed.rewardKey || 'grand';
+      remoteState.weeklyGrandRewardsClaimed = { [key]: { claimed: true, timestamp: remoteState.weeklyGrandRewardClaimed.timestamp } };
+    } else if (!remoteState.weeklyGrandRewardsClaimed || !Array.isArray(remoteState.weeklyGrandRewardsClaimed)) {
       remoteState.weeklyGrandRewardsClaimed = {};
     }
     delete remoteState.weeklyGrandRewardClaimed;
@@ -201,11 +202,12 @@ function ensurePlanTasks(plan, activities) {
 }
 
 function migrateGrandClaimed(parsed) {
-  if (parsed.weeklyGrandRewardsClaimed && typeof parsed.weeklyGrandRewardsClaimed === 'object') {
+  if (parsed.weeklyGrandRewardsClaimed && typeof parsed.weeklyGrandRewardsClaimed === 'object' && !Array.isArray(parsed.weeklyGrandRewardsClaimed) && Object.keys(parsed.weeklyGrandRewardsClaimed).length > 0) {
     return parsed.weeklyGrandRewardsClaimed;
   }
-  if (parsed.weeklyGrandRewardClaimed && parsed.weeklyGrandRewardClaimed.claimed && parsed.weeklyGrandRewardClaimed.rewardKey) {
-    return { [parsed.weeklyGrandRewardClaimed.rewardKey]: { claimed: true, timestamp: parsed.weeklyGrandRewardClaimed.timestamp } };
+  if (parsed.weeklyGrandRewardClaimed && parsed.weeklyGrandRewardClaimed.claimed) {
+    const key = parsed.weeklyGrandRewardClaimed.rewardKey || 'grand';
+    return { [key]: { claimed: true, timestamp: parsed.weeklyGrandRewardClaimed.timestamp } };
   }
   return {};
 }
@@ -1158,8 +1160,9 @@ function renderHistoryContent() {
     }
     if (Object.keys(grandClaimed).length === 0 && week.weeklyGrandRewardClaimed) {
       const oldClaimed = week.weeklyGrandRewardClaimed;
-      if (oldClaimed.claimed && oldClaimed.rewardKey) {
-        grandClaimed = { [oldClaimed.rewardKey]: { claimed: true, timestamp: oldClaimed.timestamp } };
+      if (oldClaimed.claimed) {
+        const key = oldClaimed.rewardKey || 'grand';
+        grandClaimed = { [key]: { claimed: true, timestamp: oldClaimed.timestamp } };
       }
     }
     const enabledGrandRewards = grandRewards.filter(g => g.enabled);

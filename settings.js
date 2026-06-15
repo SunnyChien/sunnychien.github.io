@@ -167,12 +167,20 @@ function loadState() {
       const rewardsSource = savedSettings.rewards
         ? savedSettings.rewards
         : defaultSettings.rewards;
-      const activities = activitiesSource.map((item) => ({
-        key: item.key || `activity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        label: item.label || item.key || "新活动",
-        score: item.score > 0 ? item.score : 10,
-        enabled: item.enabled !== false,
-      }));
+      const activities = activitiesSource.map((item) => {
+        // Migrate old bookKeys to new associations format
+        let associations = item.associations || {};
+        if (!associations.books && Array.isArray(item.bookKeys) && item.bookKeys.length > 0) {
+          associations = { ...associations, books: item.bookKeys };
+        }
+        return {
+          key: item.key || `activity-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          label: item.label || item.key || "新活动",
+          score: item.score > 0 ? item.score : 10,
+          enabled: item.enabled !== false,
+          associations,
+        };
+      });
       const rewards = rewardsSource.map((item) => ({
         key: item.key || `reward-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         label: item.label || item.key || "奖励",
@@ -275,6 +283,29 @@ function createActivityRow(activity) {
   scoreInput.className = "activity-score";
   scoreInput.value = activity.score;
 
+  const assocBtn = document.createElement("button");
+  assocBtn.type = "button";
+  assocBtn.className = "btn btn-secondary";
+  const associations = activity.associations || {};
+  const assocCount = Object.values(associations).flat().length;
+  const hasCategories = (state.settings.books || []).length > 0;
+  if (!hasCategories) {
+    assocBtn.textContent = "暂无关联";
+    assocBtn.disabled = true;
+  } else {
+    assocBtn.textContent = assocCount > 0 ? `已关联 ${assocCount} 项` : "关联活动";
+  }
+  assocBtn.style.fontSize = "13px";
+  assocBtn.style.padding = "6px 12px";
+  assocBtn.addEventListener("click", () => {
+    openAssocModal(activity.associations || {}, (newAssociations) => {
+      activity.associations = newAssociations;
+      const newCount = Object.values(newAssociations).flat().length;
+      assocBtn.textContent = newCount > 0 ? `已关联 ${newCount} 项` : "关联活动";
+      row.dataset.associations = JSON.stringify(newAssociations);
+    });
+  });
+
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "btn btn-delete";
@@ -288,6 +319,7 @@ function createActivityRow(activity) {
   row.appendChild(enabledLabel);
   row.appendChild(nameInput);
   row.appendChild(scoreInput);
+  row.appendChild(assocBtn);
   row.appendChild(deleteButton);
   return row;
 }
@@ -405,7 +437,13 @@ function buildActivitiesFromRows() {
     const enabled = row.querySelector(".activity-enabled").checked;
     const label = row.querySelector(".activity-label").value.trim() || `活动 ${index + 1}`;
     const score = Number(row.querySelector(".activity-score").value) || 10;
-    return { key, label, score, enabled };
+    let associations = {};
+    try {
+      associations = JSON.parse(row.dataset.associations || '{}');
+    } catch (e) {
+      associations = {};
+    }
+    return { key, label, score, enabled, associations };
   });
 }
 
@@ -415,6 +453,7 @@ function addActivityRow() {
     label: "新活动",
     score: 10,
     enabled: true,
+    associations: {},
   };
   activitiesList.appendChild(createActivityRow(newActivity));
 }
@@ -547,6 +586,99 @@ function addRequiredActivityRow() {
 
 const addRequiredActivityButton = document.getElementById('add-required-activity');
 addRequiredActivityButton.addEventListener('click', addRequiredActivityRow);
+
+// Association modal
+const assocModal = document.getElementById('book-select-modal');
+const assocList = document.getElementById('book-select-list');
+const assocCountLabel = document.getElementById('book-select-count');
+const assocConfirm = document.getElementById('book-select-confirm');
+const assocCancel = document.getElementById('book-select-cancel');
+const assocModalClose = document.getElementById('book-select-modal-close');
+
+let currentAssocCallback = null;
+let currentAssociations = {};
+
+// Category definitions — easily extensible
+const ASSOC_CATEGORIES = [
+  { key: 'books', label: '图书', getItems: () => state.settings.books || [], itemKey: 'key', itemLabel: 'name' },
+];
+
+function openAssocModal(initialAssociations, callback) {
+  currentAssociations = JSON.parse(JSON.stringify(initialAssociations || {}));
+  currentAssocCallback = callback;
+  renderAssocList();
+  assocModal.classList.remove('hidden');
+}
+
+function closeAssocModal() {
+  assocModal.classList.add('hidden');
+  currentAssocCallback = null;
+  currentAssociations = {};
+}
+
+function renderAssocList() {
+  let html = '';
+  let hasAny = false;
+
+  ASSOC_CATEGORIES.forEach(cat => {
+    const items = cat.getItems();
+    if (items.length === 0) return;
+    hasAny = true;
+    const selectedKeys = currentAssociations[cat.key] || [];
+
+    html += `<div style="margin-bottom: 16px;">`;
+    html += `<div style="font-size: 13px; font-weight: 600; color: #4b5563; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e5e7eb;">${cat.label}</div>`;
+
+    items.forEach(item => {
+      const checked = selectedKeys.includes(item[cat.itemKey]) ? 'checked' : '';
+      html += `
+        <label style="display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 2px; transition: background 0.15s;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+          <input type="checkbox" class="assoc-checkbox" data-cat="${cat.key}" data-item-key="${item[cat.itemKey]}" ${checked} style="width: 18px; height: 18px; accent-color: #3b82f6;">
+          <span style="font-size: 14px; color: #374151;">${item[cat.itemLabel]}</span>
+        </label>
+      `;
+    });
+    html += `</div>`;
+  });
+
+  if (!hasAny) {
+    html = '<div style="color: #94a3b8; font-size: 14px;">暂无可用关联类别。请先在图书馆页面添加书本。</div>';
+  }
+
+  assocList.innerHTML = html;
+  assocList.querySelectorAll('.assoc-checkbox').forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const catKey = e.target.dataset.cat;
+      const itemKey = e.target.dataset.itemKey;
+      if (!currentAssociations[catKey]) currentAssociations[catKey] = [];
+      if (e.target.checked) {
+        if (!currentAssociations[catKey].includes(itemKey)) currentAssociations[catKey].push(itemKey);
+      } else {
+        currentAssociations[catKey] = currentAssociations[catKey].filter(k => k !== itemKey);
+      }
+      updateAssocCount();
+    });
+  });
+  updateAssocCount();
+}
+
+function updateAssocCount() {
+  const count = Object.values(currentAssociations).flat().length;
+  assocCountLabel.textContent = `已选择 ${count} 项`;
+}
+
+assocConfirm.addEventListener('click', () => {
+  if (currentAssocCallback) {
+    currentAssocCallback(JSON.parse(JSON.stringify(currentAssociations)));
+  }
+  closeAssocModal();
+});
+
+assocCancel.addEventListener('click', closeAssocModal);
+assocModalClose.addEventListener('click', closeAssocModal);
+assocModal.addEventListener('click', (e) => {
+  if (e.target === assocModal) closeAssocModal();
+});
 
 refresh();
 

@@ -60,8 +60,52 @@ function isSupabaseReady() {
   );
 }
 
+const BACKUP_TABLE_NAME = "shared_plans_backup";
+const MAX_BACKUPS = 20;
+
+async function saveBackupSnapshot() {
+  if (!isSupabaseReady()) return;
+  try {
+    // Fetch current remote state before overwriting
+    const { data: remote } = await window.supabaseClient
+      .from(SUPABASE_TABLE_NAME)
+      .select("state, updated_at")
+      .eq("id", SUPABASE_STATE_ID)
+      .single();
+
+    if (remote && remote.state) {
+      const backupPayload = {
+        plan_id: SUPABASE_STATE_ID,
+        state: remote.state,
+        updated_at: remote.updated_at,
+        archived_at: new Date().toISOString(),
+      };
+      await window.supabaseClient.from(BACKUP_TABLE_NAME).insert(backupPayload);
+
+      // Cleanup old backups
+      const { data: oldBackups } = await window.supabaseClient
+        .from(BACKUP_TABLE_NAME)
+        .select("id, archived_at")
+        .eq("plan_id", SUPABASE_STATE_ID)
+        .order("archived_at", { ascending: false });
+
+      if (oldBackups && oldBackups.length > MAX_BACKUPS) {
+        const toDelete = oldBackups.slice(MAX_BACKUPS);
+        for (const b of toDelete) {
+          await window.supabaseClient.from(BACKUP_TABLE_NAME).delete().eq("id", b.id);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("备份快照失败（不影响主流程）", e);
+  }
+}
+
 async function saveStateToRemote() {
   if (!isSupabaseReady()) return;
+
+  // Always backup before overwriting
+  await saveBackupSnapshot();
 
   const now = Date.now();
   const payload = {
@@ -124,6 +168,7 @@ async function syncStateFromRemote() {
 
     if (error && error.code !== "PGRST116") {
       console.warn("Supabase 读取失败", error);
+      setSyncStatus(`Supabase 读取失败: ${error.message || error.code}`, "error");
       return;
     }
 
@@ -136,19 +181,32 @@ async function syncStateFromRemote() {
     const remoteUpdatedAt = new Date(data.updated_at).getTime() || 0;
     const localUpdatedAt = Number(state.updatedAt) || 0;
 
+    const localJson = JSON.stringify(state);
+    const remoteJson = JSON.stringify(remoteState);
+    const contentDiffers = localJson !== remoteJson;
+
     if (remoteUpdatedAt > localUpdatedAt) {
       state = migrateRemoteState(remoteState, remoteUpdatedAt);
+      window.state = state;
       saveState(false);
       refresh();
       setSyncStatus("已从 Supabase 拉取最新数据。", "connected");
     } else if (localUpdatedAt > remoteUpdatedAt) {
       await saveStateToRemote();
       setSyncStatus("本地数据较新，已同步到 Supabase。", "connected");
+    } else if (contentDiffers) {
+      // Timestamps equal but content differs: remote wins to prevent accidental overwrite
+      state = migrateRemoteState(remoteState, remoteUpdatedAt);
+      window.state = state;
+      saveState(false);
+      refresh();
+      setSyncStatus("检测到数据冲突，已采用远程最新版本。", "connected");
     } else {
       setSyncStatus("Supabase 与本地数据已同步。", "connected");
     }
   } catch (error) {
     console.warn("Supabase 同步失败", error);
+    setSyncStatus(`Supabase 同步失败: ${error.message || error}`, "error");
   }
 }
 
@@ -165,6 +223,7 @@ const makeupNote = document.getElementById("makeup-note");
 const reviewList = document.getElementById("review-list");
 
 let state = loadState();
+window.state = state;
 
 const supabaseReadyPromise = window.supabaseConfigReady || Promise.resolve();
 supabaseReadyPromise.finally(() => initializeSyncStatus());
@@ -180,6 +239,7 @@ function createDefaultPlan(activities = defaultSettings.activities) {
       obj[activity.key] = false;
       return obj;
     }, {}),
+    taskDetails: {},
     reward: null,
   }));
 }
@@ -194,6 +254,9 @@ function ensurePlanTasks(plan, activities) {
         day.tasks[activity.key] = false;
       }
     });
+    if (!day.taskDetails) {
+      day.taskDetails = {};
+    }
     if (!Object.prototype.hasOwnProperty.call(day, "reward")) {
       day.reward = null;
     }
@@ -272,12 +335,19 @@ function loadState() {
       } else {
         weeklyGrandRewards = defaultSettings.weeklyGrandRewards.map((item) => ({ ...item }));
       }
-      const activities = activitiesSource.map((item) => ({
-        key: item.key,
-        label: item.label || item.key,
-        score: item.score > 0 ? item.score : 10,
-        enabled: item.enabled !== false,
-      }));
+      const activities = activitiesSource.map((item) => {
+        let associations = item.associations || {};
+        if (!associations.books && Array.isArray(item.bookKeys) && item.bookKeys.length > 0) {
+          associations = { ...associations, books: item.bookKeys };
+        }
+        return {
+          key: item.key,
+          label: item.label || item.key,
+          score: item.score > 0 ? item.score : 10,
+          enabled: item.enabled !== false,
+          associations,
+        };
+      });
       let plan = parsed.plan ? ensurePlanTasks(parsed.plan, activities) : createDefaultPlan(activities);
       // normalize day labels like "周一" -> "星期一"
       plan = plan.map((d) => ({ ...d, day: (d.day || '').replace(/^周/, '星期') }));
@@ -295,6 +365,7 @@ function loadState() {
           extraBonuses,
           requiredActivities,
           weeklyGrandRewards,
+          books: savedSettings.books || [],
         },
         weeklyGrandRewardsClaimed: migrateGrandClaimed(parsed),
         history: parsed.history || [],
@@ -314,11 +385,13 @@ function loadState() {
 
 function saveState(syncRemote = true) {
   state.updatedAt = Date.now();
+  window.state = state;
   localStorage.setItem(storageKey, JSON.stringify(state));
   if (syncRemote) {
     syncStateToRemote();
   }
 }
+window.saveStateToRemote = saveStateToRemote;
 
 function getActiveActivities() {
   return getActivityList().filter((activity) => activity.enabled);
@@ -667,16 +740,17 @@ function buildTable() {
     state.plan.forEach((day, dayIndex) => {
       const cell = document.createElement("td");
       if (dayIndex === todayIndex) cell.classList.add('today-column');
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.className = "task-checkbox";
-      checkbox.checked = !!day.tasks[activity.key];
-      checkbox.addEventListener("change", () => {
-        day.tasks[activity.key] = checkbox.checked;
-        saveState();
-        refresh();
+
+      const isCompleted = !!day.tasks[activity.key];
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = isCompleted ? "task-btn task-btn-done" : "task-btn task-btn-todo";
+      btn.textContent = isCompleted ? "✓" : "+";
+      btn.title = isCompleted ? "已完成，点击查看详情" : "点击完成";
+      btn.addEventListener("click", () => {
+        openTaskDetailModal(day, activity, dayIndex);
       });
-      cell.appendChild(checkbox);
+      cell.appendChild(btn);
       row.appendChild(cell);
     });
 
@@ -941,6 +1015,187 @@ function refresh() {
   renderRequiredActivitiesStatus();
 }
 
+function getBooks() {
+  return state.settings.books || [];
+}
+
+let currentTaskDetail = null;
+
+function openTaskDetailModal(day, activity, dayIndex) {
+  currentTaskDetail = { day, activity, dayIndex };
+  const modal = document.getElementById("task-detail-modal");
+  const title = document.getElementById("task-detail-title");
+  const recorderOptions = document.getElementById("recorder-options");
+  const assocContainer = document.getElementById("assoc-select-container");
+  const infoDiv = document.getElementById("task-current-info");
+  const infoText = infoDiv.querySelector("p");
+  const clearBtn = document.getElementById("task-detail-clear");
+  const saveBtn = document.getElementById("task-detail-save");
+
+  title.textContent = `${day.day} · ${activity.label}`;
+
+  // Recorder selection - clone to remove old listeners
+  const detail = day.taskDetails && day.taskDetails[activity.key] || {};
+  const currentRecorder = detail.recorder || "";
+  recorderOptions.querySelectorAll(".recorder-btn").forEach(btn => {
+    const clone = btn.cloneNode(true);
+    clone.classList.toggle("selected", clone.dataset.value === currentRecorder);
+    clone.addEventListener("click", () => {
+      recorderOptions.querySelectorAll(".recorder-btn").forEach(b => b.classList.remove("selected"));
+      clone.classList.add("selected");
+    });
+    btn.replaceWith(clone);
+  });
+
+  // Association selections - dynamically generate for each category
+  assocContainer.innerHTML = "";
+  const activityAssociations = activity.associations || {};
+  const detailAssociations = detail.associations || {};
+
+  const categories = [
+    { key: 'books', label: '图书', getItems: () => state.settings.books || [], itemKey: 'key', itemLabel: 'name' },
+  ];
+
+  categories.forEach(cat => {
+    const items = cat.getItems();
+    const linkedKeys = activityAssociations[cat.key] || [];
+    if (linkedKeys.length === 0 || items.length === 0) return;
+
+    const group = document.createElement("div");
+    group.className = "form-group";
+    group.style.display = "flex";
+    group.style.flexDirection = "column";
+
+    const label = document.createElement("label");
+    label.textContent = `选择${cat.label}`;
+    group.appendChild(label);
+
+    const select = document.createElement("select");
+    select.className = "form-select task-assoc-select";
+    select.dataset.catKey = cat.key;
+
+    const emptyOpt = document.createElement("option");
+    emptyOpt.value = "";
+    emptyOpt.textContent = `不选择${cat.label}`;
+    select.appendChild(emptyOpt);
+
+    items.forEach(item => {
+      if (linkedKeys.includes(item[cat.itemKey])) {
+        const opt = document.createElement("option");
+        opt.value = item[cat.itemKey];
+        opt.textContent = item[cat.itemLabel];
+        select.appendChild(opt);
+      }
+    });
+
+    select.value = detailAssociations[cat.key] || "";
+    group.appendChild(select);
+    assocContainer.appendChild(group);
+  });
+
+  // Current info
+  const isCompleted = !!day.tasks[activity.key];
+  if (isCompleted) {
+    infoDiv.style.display = "block";
+    clearBtn.style.display = "inline-block";
+    const parts = [];
+    if (detail.recorder) parts.push(`录入人：${detail.recorder}`);
+
+    // Show all association selections
+    categories.forEach(cat => {
+      const items = cat.getItems();
+      const selectedKey = detailAssociations[cat.key];
+      if (selectedKey) {
+        const item = items.find(i => i[cat.itemKey] === selectedKey);
+        parts.push(`${cat.label}：${item ? item[cat.itemLabel] : selectedKey}`);
+      }
+    });
+    // Backward compat for old bookKey
+    if (detail.bookKey && !detailAssociations.books) {
+      const book = getBooks().find(b => b.key === detail.bookKey);
+      parts.push(`图书：${book ? book.name : detail.bookKey}`);
+    }
+
+    infoText.textContent = parts.length > 0 ? `当前记录：${parts.join("，")}` : "当前状态：已完成";
+    saveBtn.textContent = "更新";
+  } else {
+    infoDiv.style.display = "none";
+    clearBtn.style.display = "none";
+    saveBtn.textContent = "确认完成";
+  }
+
+  modal.classList.remove("hidden");
+}
+
+function closeTaskDetailModal() {
+  document.getElementById("task-detail-modal").classList.add("hidden");
+  currentTaskDetail = null;
+}
+
+function saveTaskDetail() {
+  if (!currentTaskDetail) return;
+  const { day, activity } = currentTaskDetail;
+
+  const selectedRecorder = document.querySelector(".recorder-btn.selected");
+  const recorder = selectedRecorder ? selectedRecorder.dataset.value : "";
+
+  if (!recorder) {
+    alert("请选择录入人");
+    return;
+  }
+
+  // Collect association selections from dynamically generated selects
+  const associations = {};
+  let bookKey = "";
+  document.querySelectorAll(".task-assoc-select").forEach(select => {
+    const catKey = select.dataset.catKey;
+    const value = select.value;
+    if (value) {
+      associations[catKey] = value;
+      if (catKey === 'books') bookKey = value;
+    }
+  });
+
+  if (!day.taskDetails) day.taskDetails = {};
+  day.taskDetails[activity.key] = {
+    recorder,
+    associations: Object.keys(associations).length > 0 ? associations : undefined,
+    bookKey: bookKey || undefined,
+  };
+  day.tasks[activity.key] = true;
+
+  saveState();
+  closeTaskDetailModal();
+  refresh();
+}
+
+function clearTaskDetail() {
+  if (!currentTaskDetail) return;
+  const { day, activity } = currentTaskDetail;
+
+  day.tasks[activity.key] = false;
+  if (day.taskDetails && day.taskDetails[activity.key]) {
+    delete day.taskDetails[activity.key];
+  }
+
+  saveState();
+  closeTaskDetailModal();
+  refresh();
+}
+
+function attachTaskDetailModalHandlers() {
+  const modal = document.getElementById("task-detail-modal");
+  document.getElementById("task-detail-modal-close").addEventListener("click", closeTaskDetailModal);
+  document.getElementById("task-detail-modal-cancel").addEventListener("click", closeTaskDetailModal);
+  document.getElementById("task-detail-save").addEventListener("click", saveTaskDetail);
+  document.getElementById("task-detail-clear").addEventListener("click", clearTaskDetail);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) {
+      closeTaskDetailModal();
+    }
+  });
+}
+
 function attachRewardModalHandlers() {
   const modal = document.getElementById("reward-modal");
   document.getElementById("reward-modal-close").addEventListener("click", closeRewardModal);
@@ -963,6 +1218,7 @@ function attachRewardModalHandlers() {
 
 renderDateHeader();
 attachRewardModalHandlers();
+attachTaskDetailModalHandlers();
 refresh();
 
 const appSupabaseReady = window.supabaseConfigReady || Promise.resolve();
@@ -1097,12 +1353,38 @@ function renderHistoryContent() {
       const activeActivities = week.settings.activities.filter(a => a.enabled);
       const completedActivities = activeActivities.filter(a => day.tasks[a.key]);
       const dayPoints = completedActivities.reduce((sum, a) => sum + a.score, 0);
-      
-      const completedLabels = completedActivities.map(a => a.label).join('、') || '无';
-      
+
+      const completedLabels = completedActivities.map(a => {
+        const detail = day.taskDetails && day.taskDetails[a.key] || {};
+        let label = a.label;
+        const parts = [];
+        if (detail.recorder) parts.push(detail.recorder);
+
+        // Show association selections
+        const detailAssociations = detail.associations || {};
+        const categories = [
+          { key: 'books', label: '图书', items: week.settings.books || [], itemKey: 'key', itemLabel: 'name' },
+        ];
+        categories.forEach(cat => {
+          const selectedKey = detailAssociations[cat.key];
+          if (selectedKey) {
+            const item = cat.items.find(i => i[cat.itemKey] === selectedKey);
+            parts.push(item ? item[cat.itemLabel] : selectedKey);
+          }
+        });
+        // Backward compat for old bookKey
+        if (detail.bookKey && !detailAssociations.books) {
+          const book = (week.settings.books || []).find(b => b.key === detail.bookKey);
+          parts.push(book ? book.name : detail.bookKey);
+        }
+
+        if (parts.length > 0) label += `（${parts.join(' · ')}）`;
+        return label;
+      }).join('、') || '无';
+
       const rewardList = week.settings.rewards || [];
       const rewardLabel = day.reward ? (rewardList.find(r => r.key === day.reward) || {}).label || day.reward : '';
-      
+
       html += `
         <tr>
           <td style="padding: 8px; border-bottom: 1px solid #f3f4f6; font-size: 14px;">${day.day}</td>
@@ -1174,7 +1456,8 @@ function renderHistoryContent() {
       allGrandKeys.forEach(key => {
         const reward = grandRewards.find(g => g.key === key);
         const label = reward ? reward.label : key;
-        const claimed = grandClaimed[key] && grandClaimed[key].claimed;
+        const claimedVal = grandClaimed[key];
+        const claimed = claimedVal === true || (claimedVal && claimedVal.claimed === true);
         if (claimed) {
           html += `<div style="font-size: 13px; color: #10b981; margin-bottom: 4px;">✅ ${label}：已领取</div>`;
         } else {
@@ -1189,8 +1472,72 @@ function renderHistoryContent() {
       </div>
     `;
   });
-  
+
+  // Data recovery section
+  html += `
+    <div style="margin-top: 20px; padding: 16px; background: #fef3c7; border-radius: 8px; border: 1px solid #fcd34d;">
+      <div style="font-size: 14px; font-weight: 600; color: #92400e; margin-bottom: 8px;">⚠️ 数据保护</div>
+      <div style="font-size: 13px; color: #78350f; margin-bottom: 12px;">
+        每次保存前系统会自动备份。如果数据被意外篡改，可以从备份恢复。
+      </div>
+      <button id="load-backups-btn" class="btn btn-secondary" style="font-size: 13px; padding: 6px 12px;">查看备份记录</button>
+      <div id="backups-list" style="margin-top: 12px;"></div>
+    </div>
+  `;
+
   container.innerHTML = html;
+
+  const loadBtn = document.getElementById('load-backups-btn');
+  if (loadBtn) {
+    loadBtn.addEventListener('click', async () => {
+      const listDiv = document.getElementById('backups-list');
+      if (!isSupabaseReady()) {
+        listDiv.innerHTML = '<div style="color: #ef4444; font-size: 13px;">Supabase 未连接，无法加载备份。</div>';
+        return;
+      }
+      listDiv.innerHTML = '<div style="font-size: 13px; color: #6b7280;">正在加载备份...</div>';
+      const { data: backups, error } = await window.supabaseClient
+        .from(BACKUP_TABLE_NAME)
+        .select('id, archived_at, updated_at')
+        .eq('plan_id', SUPABASE_STATE_ID)
+        .order('archived_at', { ascending: false })
+        .limit(10);
+      if (error || !backups || backups.length === 0) {
+        listDiv.innerHTML = '<div style="font-size: 13px; color: #6b7280;">暂无备份记录。请先确保已在 Supabase 中创建备份表。</div>';
+        return;
+      }
+      let bh = '<div style="font-size: 13px; font-weight: 600; margin-bottom: 8px;">最近备份：</div>';
+      backups.forEach((b, idx) => {
+        const date = new Date(b.archived_at).toLocaleString('zh-CN');
+        bh += `<div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #fde68a;">
+          <span style="font-size: 13px; color: #78350f;">${date}</span>
+          <button class="btn btn-secondary restore-backup-btn" data-backup-id="${b.id}" style="font-size: 12px; padding: 4px 10px;">恢复此版本</button>
+        </div>`;
+      });
+      listDiv.innerHTML = bh;
+      listDiv.querySelectorAll('.restore-backup-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const backupId = e.target.dataset.backupId;
+          if (!confirm('确定要恢复这个备份版本吗？当前数据将被覆盖。')) return;
+          const { data: backupData } = await window.supabaseClient
+            .from(BACKUP_TABLE_NAME)
+            .select('state')
+            .eq('id', backupId)
+            .single();
+          if (backupData && backupData.state) {
+            state = migrateRemoteState(backupData.state, Date.now());
+            window.state = state;
+            saveState(true);
+            refresh();
+            alert('备份已恢复！');
+            closeHistoryModal();
+          } else {
+            alert('恢复失败，无法读取备份数据。');
+          }
+        });
+      });
+    });
+  }
 }
 
 document.getElementById('view-history-btn').addEventListener('click', openHistoryModal);

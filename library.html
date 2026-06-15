@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>图书馆 - 晴天的时间安排表</title>
+  <link rel="stylesheet" href="styles.css?v=20" />
+  <style>
+    .book-list { display: grid; gap: 12px; margin-top: 16px; }
+    .book-item {
+      display: flex; align-items: center; justify-content: space-between;
+      background: #f8fafc; border-radius: 14px; padding: 14px 18px;
+      border: 1px solid #e2e8f0;
+    }
+    .book-name { font-weight: 600; color: #1e293b; }
+    .book-actions { display: flex; gap: 8px; }
+    .add-book-form {
+      display: flex; gap: 12px; align-items: flex-end; margin-top: 16px;
+      padding: 16px; background: #f8fafc; border-radius: 16px;
+    }
+    .add-book-form input {
+      flex: 1; padding: 10px 14px; border: 2px solid #e2e8f0;
+      border-radius: 12px; font-size: 1rem;
+    }
+    .add-book-form input:focus {
+      outline: none; border-color: #6366f1;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="app-caption">晴天一周计划表</p>
+        <h1>图书馆</h1>
+      </div>
+      <div class="score-badge">管理学习书本</div>
+    </header>
+
+    <section class="panel panel-primary">
+      <div class="panel-header">
+        <div>
+          <h2>书本列表</h2>
+          <p>添加书本，然后在<a href="settings.html">活动设置</a>中为每项活动关联对应的书本。</p>
+        </div>
+        <a class="btn btn-secondary" href="index.html">返回首页</a>
+      </div>
+
+      <div class="add-book-form">
+        <input type="text" id="new-book-name" placeholder="输入书本名称，如《数学思维训练》" />
+        <button type="button" class="btn btn-primary" id="add-book-btn">添加书本</button>
+      </div>
+
+      <div class="book-list" id="book-list"></div>
+    </section>
+
+    <footer class="app-footer">
+      <p>本原型使用Supabase数据库存储，用于晴天日常计划与复盘。</p>
+    </footer>
+  </div>
+
+  <script src="supabase-loader.js?v=20"></script>
+  <script src="supabase-config.js?v=20"></script>
+  <script src="app.js?v=20"></script>
+  <script>
+    setTimeout(() => {
+      renderLibrary();
+    }, 100);
+
+    function getBooks() {
+      return (window.state && window.state.settings && window.state.settings.books) || [];
+    }
+
+    function saveBooks(books) {
+      if (!window.state) return;
+      window.state.settings.books = books;
+      window.state.updatedAt = Date.now();
+      localStorage.setItem("study-planner-data", JSON.stringify(window.state));
+      if (typeof window.saveStateToRemote === 'function') window.saveStateToRemote();
+    }
+
+    function addBook(name) {
+      const books = getBooks();
+      const key = 'book-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+      books.push({ key, name });
+      saveBooks(books);
+      renderLibrary();
+    }
+
+    function removeBook(key) {
+      let books = getBooks();
+      books = books.filter(b => b.key !== key);
+      saveBooks(books);
+      renderLibrary();
+    }
+
+    function renderLibrary() {
+      const list = document.getElementById('book-list');
+      const books = getBooks();
+
+      if (books.length === 0) {
+        list.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 24px;">暂无书本，请在上方添加。</p>';
+        return;
+      }
+
+      list.innerHTML = '';
+      books.forEach(book => {
+        const item = document.createElement('div');
+        item.className = 'book-item';
+
+        const name = document.createElement('div');
+        name.className = 'book-name';
+        name.textContent = book.name;
+
+        const actions = document.createElement('div');
+        actions.className = 'book-actions';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn btn-danger';
+        delBtn.textContent = '删除';
+        delBtn.style.padding = '8px 14px';
+        delBtn.style.fontSize = '0.85rem';
+        delBtn.addEventListener('click', () => removeBook(book.key));
+        actions.appendChild(delBtn);
+
+        item.appendChild(name);
+        item.appendChild(actions);
+        list.appendChild(item);
+      });
+    }
+
+    document.getElementById('add-book-btn').addEventListener('click', () => {
+      const input = document.getElementById('new-book-name');
+      const name = input.value.trim();
+      if (name) {
+        addBook(name);
+        input.value = '';
+      }
+    });
+
+    document.getElementById('new-book-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const input = document.getElementById('new-book-name');
+        const name = input.value.trim();
+        if (name) {
+          addBook(name);
+          input.value = '';
+        }
+      }
+    });
+  </script>
+</body>
+</html>

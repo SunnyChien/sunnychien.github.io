@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>设置 - 儿童计划表</title>
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=19" />
 </head>
 <body>
   <div class="app-shell">
@@ -15,6 +15,7 @@
       </div>
       <div id="sync-status" class="sync-status">Supabase 同步状态初始化中…</div>
       <div style="display: flex; gap: 12px;">
+        <a class="btn btn-secondary" href="library.html">图书馆</a>
         <a class="btn btn-secondary" href="reward-shop.html">奖励商店</a>
         <a class="btn btn-secondary" href="index.html">返回计划页</a>
       </div>
@@ -39,7 +40,7 @@
       <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
         <div>
           <h3>活动列表</h3>
-          <p>可编辑名称、设置分值、并开启或关闭每日显示。</p>
+          <p>可编辑名称、设置分值、开启或关闭显示，并关联相关活动（如图书等）。</p>
         </div>
         <button class="btn btn-secondary btn-add" type="button" id="add-activity">新增活动</button>
       </div>
@@ -68,8 +69,28 @@
     </section>
   </div>
 
-  <script src="supabase-loader.js?v=17"></script>
-  <script src="supabase-config.js?v=17"></script>
-  <script src="settings.js?v=17"></script>
+  <!-- Book Selection Modal -->
+  <div id="book-select-modal" class="modal-overlay hidden">
+    <div class="modal" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3>关联活动</h3>
+        <button class="modal-close" id="book-select-modal-close">&times;</button>
+      </div>
+      <div id="book-select-modal-body" style="padding: 16px; max-height: 400px; overflow-y: auto;">
+        <div id="book-select-list"></div>
+      </div>
+      <div style="padding: 16px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+        <span id="book-select-count" style="font-size: 14px; color: #6b7280;">已选择 0 本</span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="book-select-cancel">取消</button>
+          <button class="btn btn-save" id="book-select-confirm">确定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="supabase-loader.js?v=19"></script>
+  <script src="supabase-config.js?v=19"></script>
+  <script src="settings.js?v=19"></script>
 </body>
 </html>

@@ -442,6 +442,52 @@ input {
   color: #374151;
 }
 
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.settings-table thead {
+  background: #f1f5f9;
+}
+
+.settings-table th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.settings-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.settings-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.settings-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.settings-table .activity-label {
+  width: 100%;
+  min-width: 140px;
+}
+
+.settings-table .activity-score {
+  width: 70px;
+}
+
 .recorder-options {
   display: flex;
   gap: 12px;
@@ -999,6 +1045,21 @@ input {
   .activity-row input[type="checkbox"] {
     width: 20px;
     height: 20px;
+  }
+
+  .settings-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-radius: 12px;
+  }
+
+  .settings-table thead,
+  .settings-table tbody,
+  .settings-table tr {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
   }
 
   .activity-row .btn-remove {

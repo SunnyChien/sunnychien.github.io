@@ -44,7 +44,18 @@
         </div>
         <button class="btn btn-secondary btn-add" type="button" id="add-activity">新增活动</button>
       </div>
-      <div class="activity-options" id="activities-list"></div>
+      <table class="settings-table" id="activities-table">
+        <thead>
+          <tr>
+            <th style="width: 60px; text-align: center;">可用</th>
+            <th>活动名称</th>
+            <th style="width: 100px;">单位分值</th>
+            <th style="width: 130px;">关联活动</th>
+            <th style="width: 70px;"></th>
+          </tr>
+        </thead>
+        <tbody id="activities-list"></tbody>
+      </table>
 
       <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
         <div>
@@ -53,7 +64,18 @@
         </div>
         <button class="btn btn-secondary btn-add" type="button" id="add-extra-bonus">新增规则</button>
       </div>
-      <div class="activity-options" id="extra-bonuses-list"></div>
+      <table class="settings-table" id="extra-bonuses-table">
+        <thead>
+          <tr>
+            <th style="width: 60px; text-align: center;">启用</th>
+            <th>活动名称</th>
+            <th style="width: 100px;">达成次数</th>
+            <th style="width: 100px;">额外加分</th>
+            <th style="width: 70px;"></th>
+          </tr>
+        </thead>
+        <tbody id="extra-bonuses-list"></tbody>
+      </table>
 
       <div class="panel-header" style="margin-top: 24px; gap: 12px; display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap;">
         <div>
@@ -62,7 +84,17 @@
         </div>
         <button class="btn btn-secondary btn-add" type="button" id="add-required-activity">新增必选活动</button>
       </div>
-      <div class="activity-options" id="required-activities-list"></div>
+      <table class="settings-table" id="required-activities-table">
+        <thead>
+          <tr>
+            <th style="width: 60px; text-align: center;">启用</th>
+            <th>活动名称</th>
+            <th style="width: 100px;">达成次数</th>
+            <th style="width: 70px;"></th>
+          </tr>
+        </thead>
+        <tbody id="required-activities-list"></tbody>
+      </table>
 
       <div class="message-box" id="settings-message"></div>
       <button class="btn btn-save" id="save-settings">保存设置</button>

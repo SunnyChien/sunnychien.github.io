@@ -262,27 +262,35 @@ function saveState() {
 }
 
 function createActivityRow(activity) {
-  const row = document.createElement("div");
-  row.className = "activity-row";
+  const row = document.createElement("tr");
+  row.className = "settings-table-row";
   row.dataset.key = activity.key;
 
+  const enabledCell = document.createElement("td");
+  enabledCell.style.textAlign = "center";
   const enabledLabel = document.createElement("label");
   enabledLabel.className = "activity-toggle";
-  enabledLabel.innerHTML = `<input type="checkbox" class="activity-enabled" ${activity.enabled ? "checked" : ""}/> 可用`;
+  enabledLabel.innerHTML = `<input type="checkbox" class="activity-enabled" ${activity.enabled ? "checked" : ""}/>`;
+  enabledCell.appendChild(enabledLabel);
 
+  const nameCell = document.createElement("td");
   const nameInput = document.createElement("input");
   nameInput.type = "text";
   nameInput.className = "activity-label";
   nameInput.value = activity.label;
   nameInput.placeholder = "活动名称";
+  nameCell.appendChild(nameInput);
 
+  const scoreCell = document.createElement("td");
   const scoreInput = document.createElement("input");
   scoreInput.type = "number";
   scoreInput.min = "1";
   scoreInput.step = "1";
   scoreInput.className = "activity-score";
   scoreInput.value = activity.score;
+  scoreCell.appendChild(scoreInput);
 
+  const assocCell = document.createElement("td");
   const assocBtn = document.createElement("button");
   assocBtn.type = "button";
   assocBtn.className = "btn btn-secondary";
@@ -293,7 +301,7 @@ function createActivityRow(activity) {
     assocBtn.textContent = "暂无关联";
     assocBtn.disabled = true;
   } else {
-    assocBtn.textContent = assocCount > 0 ? `已关联 ${assocCount} 项` : "关联活动";
+    assocBtn.textContent = assocCount > 0 ? `已关联 ${assocCount} 项` : "关联";
   }
   assocBtn.style.fontSize = "13px";
   assocBtn.style.padding = "6px 12px";
@@ -301,11 +309,13 @@ function createActivityRow(activity) {
     openAssocModal(activity.associations || {}, (newAssociations) => {
       activity.associations = newAssociations;
       const newCount = Object.values(newAssociations).flat().length;
-      assocBtn.textContent = newCount > 0 ? `已关联 ${newCount} 项` : "关联活动";
+      assocBtn.textContent = newCount > 0 ? `已关联 ${newCount} 项` : "关联";
       row.dataset.associations = JSON.stringify(newAssociations);
     });
   });
+  assocCell.appendChild(assocBtn);
 
+  const deleteCell = document.createElement("td");
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "btn btn-delete";
@@ -315,12 +325,13 @@ function createActivityRow(activity) {
       row.remove();
     }
   });
+  deleteCell.appendChild(deleteButton);
 
-  row.appendChild(enabledLabel);
-  row.appendChild(nameInput);
-  row.appendChild(scoreInput);
-  row.appendChild(assocBtn);
-  row.appendChild(deleteButton);
+  row.appendChild(enabledCell);
+  row.appendChild(nameCell);
+  row.appendChild(scoreCell);
+  row.appendChild(assocCell);
+  row.appendChild(deleteCell);
   return row;
 }
 
@@ -332,14 +343,18 @@ function buildActivityOptions() {
 }
 
 function createExtraBonusRow(item) {
-  const row = document.createElement("div");
-  row.className = "activity-row";
+  const row = document.createElement("tr");
+  row.className = "settings-table-row";
   row.dataset.key = item.key;
 
+  const enabledCell = document.createElement("td");
+  enabledCell.style.textAlign = "center";
   const enabledLabel = document.createElement("label");
   enabledLabel.className = "activity-toggle";
-  enabledLabel.innerHTML = `<input type="checkbox" class="extra-enabled" ${item.enabled ? "checked" : ""}/> 启用`;
+  enabledLabel.innerHTML = `<input type="checkbox" class="extra-enabled" ${item.enabled ? "checked" : ""}/>`;
+  enabledCell.appendChild(enabledLabel);
 
+  const activityCell = document.createElement("td");
   const activitySelect = document.createElement("select");
   activitySelect.className = "activity-label";
   (state.settings.activities || []).forEach((act) => {
@@ -349,7 +364,9 @@ function createExtraBonusRow(item) {
     if (act.key === item.activityKey) opt.selected = true;
     activitySelect.appendChild(opt);
   });
+  activityCell.appendChild(activitySelect);
 
+  const requiredCell = document.createElement("td");
   const requiredInput = document.createElement("input");
   requiredInput.type = "number";
   requiredInput.min = "1";
@@ -357,7 +374,9 @@ function createExtraBonusRow(item) {
   requiredInput.className = "activity-score";
   requiredInput.value = item.requiredCount;
   requiredInput.title = "完成次数";
+  requiredCell.appendChild(requiredInput);
 
+  const bonusCell = document.createElement("td");
   const bonusInput = document.createElement("input");
   bonusInput.type = "number";
   bonusInput.min = "0";
@@ -365,7 +384,9 @@ function createExtraBonusRow(item) {
   bonusInput.className = "activity-score";
   bonusInput.value = item.bonusPoints;
   bonusInput.title = "加分值";
+  bonusCell.appendChild(bonusInput);
 
+  const deleteCell = document.createElement("td");
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "btn btn-delete";
@@ -375,12 +396,13 @@ function createExtraBonusRow(item) {
       row.remove();
     }
   });
+  deleteCell.appendChild(deleteButton);
 
-  row.appendChild(enabledLabel);
-  row.appendChild(activitySelect);
-  row.appendChild(requiredInput);
-  row.appendChild(bonusInput);
-  row.appendChild(deleteButton);
+  row.appendChild(enabledCell);
+  row.appendChild(activityCell);
+  row.appendChild(requiredCell);
+  row.appendChild(bonusCell);
+  row.appendChild(deleteCell);
   return row;
 }
 
@@ -413,7 +435,7 @@ function syncForm() {
 }
 
 function buildExtraBonusesFromRows() {
-  const rows = Array.from(extraBonusesList.querySelectorAll('.activity-row'));
+  const rows = Array.from(extraBonusesList.querySelectorAll('.settings-table-row'));
   return rows.map((row, index) => {
     const key = row.dataset.key || `extra-${Date.now()}-${index}`;
     const enabled = row.querySelector('.extra-enabled').checked;
@@ -431,7 +453,7 @@ function showMessage(text, isError = false) {
 }
 
 function buildActivitiesFromRows() {
-  const rows = Array.from(activitiesList.querySelectorAll(".activity-row"));
+  const rows = Array.from(activitiesList.querySelectorAll(".settings-table-row"));
   return rows.map((row, index) => {
     const key = row.dataset.key || `activity-${Date.now()}-${index}`;
     const enabled = row.querySelector(".activity-enabled").checked;
@@ -507,14 +529,18 @@ const addExtraBonusButton = document.getElementById('add-extra-bonus');
 addExtraBonusButton.addEventListener('click', addExtraBonusRow);
 
 function createRequiredActivityRow(item) {
-  const row = document.createElement("div");
-  row.className = "activity-row";
+  const row = document.createElement("tr");
+  row.className = "settings-table-row";
   row.dataset.key = item.key;
 
+  const enabledCell = document.createElement("td");
+  enabledCell.style.textAlign = "center";
   const enabledLabel = document.createElement("label");
   enabledLabel.className = "activity-toggle";
-  enabledLabel.innerHTML = `<input type="checkbox" class="required-enabled" ${item.enabled ? "checked" : ""}/> 启用`;
+  enabledLabel.innerHTML = `<input type="checkbox" class="required-enabled" ${item.enabled ? "checked" : ""}/>`;
+  enabledCell.appendChild(enabledLabel);
 
+  const activityCell = document.createElement("td");
   const activitySelect = document.createElement("select");
   activitySelect.className = "activity-label";
   (state.settings.activities || []).forEach((act) => {
@@ -524,7 +550,9 @@ function createRequiredActivityRow(item) {
     if (act.key === item.activityKey) opt.selected = true;
     activitySelect.appendChild(opt);
   });
+  activityCell.appendChild(activitySelect);
 
+  const countCell = document.createElement("td");
   const countInput = document.createElement("input");
   countInput.type = "number";
   countInput.min = "1";
@@ -532,12 +560,9 @@ function createRequiredActivityRow(item) {
   countInput.className = "activity-score";
   countInput.value = item.requiredCount;
   countInput.title = "完成次数";
+  countCell.appendChild(countInput);
 
-  const countLabel = document.createElement("span");
-  countLabel.textContent = "次";
-  countLabel.style.fontSize = "0.9rem";
-  countLabel.style.color = "#64748b";
-
+  const deleteCell = document.createElement("td");
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "btn btn-delete";
@@ -547,17 +572,17 @@ function createRequiredActivityRow(item) {
       row.remove();
     }
   });
+  deleteCell.appendChild(deleteButton);
 
-  row.appendChild(enabledLabel);
-  row.appendChild(activitySelect);
-  row.appendChild(countInput);
-  row.appendChild(countLabel);
-  row.appendChild(deleteButton);
+  row.appendChild(enabledCell);
+  row.appendChild(activityCell);
+  row.appendChild(countCell);
+  row.appendChild(deleteCell);
   return row;
 }
 
 function buildRequiredActivitiesFromRows() {
-  const rows = Array.from(requiredActivitiesList.querySelectorAll('.activity-row'));
+  const rows = Array.from(requiredActivitiesList.querySelectorAll('.settings-table-row'));
   return rows.map((row, index) => {
     const key = row.dataset.key || `required-${Date.now()}-${index}`;
     const enabled = row.querySelector('.required-enabled').checked;

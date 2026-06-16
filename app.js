@@ -653,7 +653,10 @@ function selectReward(reward) {
 
 function getDayPoints(day) {
   return getActiveActivities().reduce((sum, activity) => {
-    return sum + (day.tasks[activity.key] ? activity.score : 0);
+    if (!day.tasks[activity.key]) return sum;
+    const detail = day.taskDetails && day.taskDetails[activity.key] || {};
+    const quantity = detail.quantity || 1;
+    return sum + (activity.score * quantity);
   }, 0);
 }
 
@@ -1027,6 +1030,7 @@ function openTaskDetailModal(day, activity, dayIndex) {
   const title = document.getElementById("task-detail-title");
   const recorderOptions = document.getElementById("recorder-options");
   const assocContainer = document.getElementById("assoc-select-container");
+  const quantityInput = document.getElementById("task-quantity");
   const infoDiv = document.getElementById("task-current-info");
   const infoText = infoDiv.querySelector("p");
   const clearBtn = document.getElementById("task-detail-clear");
@@ -1093,6 +1097,9 @@ function openTaskDetailModal(day, activity, dayIndex) {
     assocContainer.appendChild(group);
   });
 
+  // Quantity
+  quantityInput.value = detail.quantity || 1;
+
   // Current info
   const isCompleted = !!day.tasks[activity.key];
   if (isCompleted) {
@@ -1100,6 +1107,8 @@ function openTaskDetailModal(day, activity, dayIndex) {
     clearBtn.style.display = "inline-block";
     const parts = [];
     if (detail.recorder) parts.push(`录入人：${detail.recorder}`);
+    const qty = detail.quantity || 1;
+    if (qty > 1) parts.push(`数量：${qty}`);
 
     // Show all association selections
     categories.forEach(cat => {
@@ -1144,6 +1153,8 @@ function saveTaskDetail() {
     return;
   }
 
+  const quantity = Math.max(1, parseInt(document.getElementById("task-quantity").value, 10) || 1);
+
   // Collect association selections from dynamically generated selects
   const associations = {};
   let bookKey = "";
@@ -1159,6 +1170,7 @@ function saveTaskDetail() {
   if (!day.taskDetails) day.taskDetails = {};
   day.taskDetails[activity.key] = {
     recorder,
+    quantity: quantity > 1 ? quantity : undefined,
     associations: Object.keys(associations).length > 0 ? associations : undefined,
     bookKey: bookKey || undefined,
   };
@@ -1352,12 +1364,18 @@ function renderHistoryContent() {
     week.plan.forEach((day) => {
       const activeActivities = week.settings.activities.filter(a => a.enabled);
       const completedActivities = activeActivities.filter(a => day.tasks[a.key]);
-      const dayPoints = completedActivities.reduce((sum, a) => sum + a.score, 0);
+      const dayPoints = completedActivities.reduce((sum, a) => {
+        const detail = day.taskDetails && day.taskDetails[a.key] || {};
+        const qty = detail.quantity || 1;
+        return sum + (a.score * qty);
+      }, 0);
 
       const completedLabels = completedActivities.map(a => {
         const detail = day.taskDetails && day.taskDetails[a.key] || {};
         let label = a.label;
         const parts = [];
+        const qty = detail.quantity || 1;
+        if (qty > 1) parts.push(`×${qty}`);
         if (detail.recorder) parts.push(detail.recorder);
 
         // Show association selections

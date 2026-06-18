@@ -1048,13 +1048,39 @@ input {
   }
 
   .settings-table {
-    min-width: 640px;
-    font-size: 14px;
+    width: 100%;
+    min-width: 0;
+    font-size: 13px;
+    table-layout: fixed;
   }
 
   .settings-table th,
   .settings-table td {
-    padding: 8px 10px;
+    padding: 6px 4px;
+    word-break: break-all;
+  }
+
+  .settings-table th:first-child,
+  .settings-table td:first-child {
+    width: 40px;
+    text-align: center;
+  }
+
+  .settings-table th:last-child,
+  .settings-table td:last-child {
+    width: 50px;
+    text-align: center;
+  }
+
+  .settings-table .activity-label,
+  .settings-table .activity-score {
+    padding: 6px 4px;
+    font-size: 13px;
+  }
+
+  .settings-table .btn-delete {
+    padding: 4px 6px;
+    font-size: 12px;
   }
 
   .activity-row .btn-remove {

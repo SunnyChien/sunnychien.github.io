@@ -1048,18 +1048,13 @@ input {
   }
 
   .settings-table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-    border-radius: 12px;
+    min-width: 640px;
+    font-size: 14px;
   }
 
-  .settings-table thead,
-  .settings-table tbody,
-  .settings-table tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
+  .settings-table th,
+  .settings-table td {
+    padding: 8px 10px;
   }
 
   .activity-row .btn-remove {

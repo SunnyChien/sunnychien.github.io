@@ -457,7 +457,7 @@ input {
 
 .settings-table th {
   padding: 12px 14px;
-  text-align: left;
+  text-align: center;
   font-size: 13px;
   font-weight: 600;
   color: #475569;
@@ -676,6 +676,7 @@ input {
 .activity-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   color: #334155;
   font-weight: 600;
@@ -706,7 +707,16 @@ input {
 .btn-delete {
   background: #ef4444;
   color: #fff;
-  min-width: 96px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
 }
 
 .message-box {
@@ -1048,39 +1058,103 @@ input {
   }
 
   .settings-table {
-    width: 100%;
-    min-width: 0;
-    font-size: 13px;
+    font-size: 12px;
     table-layout: fixed;
+    width: 100%;
   }
 
   .settings-table th,
   .settings-table td {
-    padding: 6px 4px;
-    word-break: break-all;
+    padding: 4px 2px;
+    overflow: hidden;
+    word-break: break-word;
   }
 
+  /* 首列（勾选框） */
   .settings-table th:first-child,
   .settings-table td:first-child {
-    width: 40px;
+    width: 30px !important;
+    min-width: 30px !important;
     text-align: center;
   }
 
+  /* 末列（删除按钮 ×） */
   .settings-table th:last-child,
   .settings-table td:last-child {
-    width: 50px;
+    width: 26px !important;
+    min-width: 26px !important;
     text-align: center;
+  }
+
+  /* 活动名称列 */
+  .settings-table th:nth-child(2),
+  .settings-table td:nth-child(2) {
+    width: 60px !important;
+  }
+
+  /* 活动列表：单位分值、关联活动 */
+  #activities-table th:nth-child(3),
+  #activities-table td:nth-child(3) {
+    width: 44px !important;
+  }
+
+  #activities-table th:nth-child(4),
+  #activities-table td:nth-child(4) {
+    width: 52px !important;
+  }
+
+  /* 额外加分：达成次数、额外加分 */
+  #extra-bonuses-table th:nth-child(3),
+  #extra-bonuses-table td:nth-child(3),
+  #extra-bonuses-table th:nth-child(4),
+  #extra-bonuses-table td:nth-child(4) {
+    width: 44px !important;
+  }
+
+  /* 必选活动：达成次数 */
+  #required-activities-table th:nth-child(3),
+  #required-activities-table td:nth-child(3) {
+    width: 52px !important;
   }
 
   .settings-table .activity-label,
   .settings-table .activity-score {
-    padding: 6px 4px;
-    font-size: 13px;
+    padding: 3px 2px !important;
+    font-size: 12px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
   }
 
+  /* 删除按钮 × 样式 */
   .settings-table .btn-delete {
-    padding: 4px 6px;
-    font-size: 12px;
+    padding: 0 !important;
+    font-size: 16px !important;
+    line-height: 1;
+    min-width: 0 !important;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  /* 关联活动按钮 */
+  #activities-table .btn-secondary {
+    padding: 3px 4px !important;
+    font-size: 11px !important;
+    width: 100%;
+    box-sizing: border-box;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .settings-table select.activity-label {
+    padding: 3px 2px !important;
+    font-size: 12px !important;
   }
 
   .activity-row .btn-remove {

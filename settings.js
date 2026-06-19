@@ -301,7 +301,7 @@ function createActivityRow(activity) {
     assocBtn.textContent = "暂无关联";
     assocBtn.disabled = true;
   } else {
-    assocBtn.textContent = assocCount > 0 ? `已关联 ${assocCount} 项` : "关联";
+    assocBtn.textContent = assocCount > 0 ? "已关联" : "关联";
   }
   assocBtn.style.fontSize = "13px";
   assocBtn.style.padding = "6px 12px";
@@ -309,7 +309,7 @@ function createActivityRow(activity) {
     openAssocModal(activity.associations || {}, (newAssociations) => {
       activity.associations = newAssociations;
       const newCount = Object.values(newAssociations).flat().length;
-      assocBtn.textContent = newCount > 0 ? `已关联 ${newCount} 项` : "关联";
+      assocBtn.textContent = newCount > 0 ? "已关联" : "关联";
       row.dataset.associations = JSON.stringify(newAssociations);
     });
   });
@@ -319,7 +319,7 @@ function createActivityRow(activity) {
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "btn btn-delete";
-  deleteButton.textContent = "删除";
+  deleteButton.textContent = "×";
   deleteButton.addEventListener("click", () => {
     if (confirm(`确认删除活动“${activity.label}”？`)) {
       row.remove();
@@ -390,7 +390,7 @@ function createExtraBonusRow(item) {
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "btn btn-delete";
-  deleteButton.textContent = "删除";
+  deleteButton.textContent = "×";
   deleteButton.addEventListener("click", () => {
     if (confirm(`确认删除规则？`)) {
       row.remove();
@@ -566,7 +566,7 @@ function createRequiredActivityRow(item) {
   const deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "btn btn-delete";
-  deleteButton.textContent = "删除";
+  deleteButton.textContent = "×";
   deleteButton.addEventListener("click", () => {
     if (confirm('确认删除该必选活动？')) {
       row.remove();

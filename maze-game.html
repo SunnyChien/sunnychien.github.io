@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>迷宫方向排列游戏</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f0c29;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #fff;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 28px;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, #f7971e, #ffd200);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .subtitle { color: #aaa; font-size: 14px; margin-bottom: 16px; }
+  .back-link {
+    color: #aaa;
+    font-size: 14px;
+    margin-bottom: 16px;
+    text-decoration: none;
+  }
+  .back-link:hover { color: #ffd200; }
+  .game-container {
+    display: flex;
+    gap: 30px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .maze-panel {
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  canvas {
+    display: block;
+    border-radius: 8px;
+  }
+  .control-panel {
+    background: rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    min-width: 260px;
+  }
+  .control-panel h2 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #ffd200;
+  }
+  .dir-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 60px);
+    grid-template-rows: repeat(3, 60px);
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .dir-btn {
+    border: none;
+    border-radius: 12px;
+    font-size: 22px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-weight: bold;
+  }
+  .dir-btn:hover { transform: scale(1.08); }
+  .dir-btn:active { transform: scale(0.95); }
+  .dir-btn.up    { background: linear-gradient(135deg, #667eea, #764ba2); }
+  .dir-btn.down  { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .dir-btn.left  { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+  .dir-btn.right { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+  .dir-btn.placeholder { background: transparent; cursor: default; }
+  .dir-btn.placeholder:hover { transform: none; }
+
+  .sequence-area {
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 12px;
+    padding-bottom: 20px;
+    min-height: 60px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .seq-item {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #fff;
+    font-weight: bold;
+    position: relative;
+    animation: popIn 0.2s ease;
+    flex-direction: column;
+  }
+  .seq-item .step-num {
+    position: absolute;
+    bottom: -14px;
+    font-size: 10px;
+    color: #888;
+    font-weight: normal;
+  }
+  .seq-item.up    { background: linear-gradient(135deg, #667eea, #764ba2); }
+  .seq-item.down  { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .seq-item.left  { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+  .seq-item.right { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+  .seq-item .remove-btn {
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 16px; height: 16px;
+    background: #ff4757;
+    border-radius: 50%;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    color: #fff;
+    line-height: 1;
+  }
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+  }
+  .action-btn {
+    flex: 1;
+    padding: 10px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    color: #fff;
+  }
+  .action-btn:hover { transform: translateY(-2px); }
+  .action-btn:active { transform: translateY(0); }
+  .action-btn.run   { background: linear-gradient(135deg, #f7971e, #ffd200); color: #333; }
+  .action-btn.clear { background: linear-gradient(135deg, #636363, #a2a2a2); }
+  .action-btn.reset { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
+
+  .level-info {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #ccc;
+  }
+  .level-info span { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; }
+
+  .message {
+    margin-top: 12px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-weight: bold;
+    text-align: center;
+    font-size: 14px;
+    display: none;
+  }
+  .message.win {
+    display: block;
+    background: linear-gradient(135deg, #43e97b, #38f9d7);
+    color: #333;
+  }
+  .message.fail {
+    display: block;
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+  }
+  .level-select {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .level-btn {
+    padding: 6px 14px;
+    border: 2px solid rgba(255,255,255,0.2);
+    background: transparent;
+    color: #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .level-btn:hover { border-color: #ffd200; color: #ffd200; }
+  .level-btn.active {
+    background: linear-gradient(135deg, #f7971e, #ffd200);
+    color: #333;
+    border-color: transparent;
+    font-weight: bold;
+  }
+  .hint { color: #888; font-size: 12px; margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>迷宫方向排列</h1>
+<p class="subtitle">排列方向指令，引导角色到达终点</p>
+<a class="back-link" href="index.html">← 返回计划表</a>
+
+<div class="level-select" id="levelSelect"></div>
+
+<div class="game-container">
+  <div class="maze-panel">
+    <canvas id="mazeCanvas" width="400" height="400"></canvas>
+  </div>
+  <div class="control-panel">
+    <div class="level-info">
+      <span id="levelLabel">关卡 1</span>
+      <span id="stepLabel">步数: 0</span>
+    </div>
+
+    <h2>排列方向</h2>
+    <div class="sequence-area" id="sequenceArea">
+      <span style="color:#555;font-size:13px;">点击下方方向按钮添加指令</span>
+    </div>
+
+    <div class="dir-buttons">
+      <div class="dir-btn placeholder"></div>
+      <button class="dir-btn up" onclick="addDirection('up')">↑</button>
+      <div class="dir-btn placeholder"></div>
+      <button class="dir-btn left" onclick="addDirection('left')">←</button>
+      <button class="dir-btn down" onclick="addDirection('down')">↓</button>
+      <button class="dir-btn right" onclick="addDirection('right')">→</button>
+    </div>
+
+    <div class="action-buttons">
+      <button class="action-btn run" onclick="runSequence()">执行</button>
+      <button class="action-btn clear" onclick="clearSequence()">清空</button>
+      <button class="action-btn reset" onclick="resetLevel()">重置</button>
+    </div>
+
+    <div class="message" id="message"></div>
+    <p class="hint">提示：点击已添加的指令可删除</p>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('mazeCanvas');
+const ctx = canvas.getContext('2d');
+
+// 关卡数据：1=墙, 0=路, 2=起点, 3=终点
+const levels = [
+  {
+    name: '关卡 1 - 初识',
+    grid: [
+      [1,1,1,1,1,1,1,1],
+      [1,2,0,0,1,0,0,1],
+      [1,0,1,0,1,0,1,1],
+      [1,0,1,0,0,0,0,1],
+      [1,0,1,1,1,1,0,1],
+      [1,0,0,0,0,1,0,1],
+      [1,1,1,1,0,0,3,1],
+      [1,1,1,1,1,1,1,1],
+    ]
+  },
+  {
+    name: '关卡 2 - 迂回',
+    grid: [
+      [1,1,1,1,1,1,1,1,1,1],
+      [1,2,0,1,0,0,0,0,0,1],
+      [1,1,0,1,0,1,1,1,0,1],
+      [1,0,0,0,0,0,0,1,0,1],
+      [1,0,1,1,1,1,0,1,0,1],
+      [1,0,1,0,0,0,0,0,0,1],
+      [1,0,1,0,1,1,1,1,0,1],
+      [1,0,0,0,1,0,0,0,0,1],
+      [1,1,1,0,1,0,1,1,3,1],
+      [1,1,1,1,1,1,1,1,1,1],
+    ]
+  },
+  {
+    name: '关卡 3 - 迷途',
+    grid: [
+      [1,1,1,1,1,1,1,1,1,1],
+      [1,2,0,0,0,1,0,0,0,1],
+      [1,1,1,1,0,1,0,1,0,1],
+      [1,0,0,0,0,0,0,1,0,1],
+      [1,0,1,1,1,1,1,1,0,1],
+      [1,0,0,0,0,0,0,0,0,1],
+      [1,1,1,0,1,1,1,1,0,1],
+      [1,0,0,0,1,0,0,0,0,1],
+      [1,0,1,0,0,0,1,1,3,1],
+      [1,1,1,1,1,1,1,1,1,1],
+    ]
+  },
+  {
+    name: '关卡 4 - 旋涡',
+    grid: [
+      [1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,2,0,0,1,0,0,0,1,0,0,1],
+      [1,0,1,0,1,0,1,0,0,0,1,1],
+      [1,0,1,0,0,0,1,1,1,0,0,1],
+      [1,0,1,1,1,0,0,0,1,1,0,1],
+      [1,0,0,0,1,1,1,0,0,0,0,1],
+      [1,1,1,0,0,0,1,1,1,1,0,1],
+      [1,0,0,0,1,0,0,0,0,1,0,1],
+      [1,0,1,1,1,1,1,1,0,1,0,1],
+      [1,0,0,0,0,0,0,0,0,0,3,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1],
+    ]
+  },
+  {
+    name: '关卡 5 - 终极',
+    grid: [
+      [1,1,1,1,1,1,1,1,1,1,1,1],
+      [1,2,1,0,0,0,1,0,0,0,0,1],
+      [1,0,1,0,1,0,0,0,1,1,0,1],
+      [1,0,0,0,1,1,1,0,0,0,0,1],
+      [1,0,1,0,0,0,1,1,1,1,0,1],
+      [1,0,1,1,1,0,0,0,0,1,0,1],
+      [1,0,0,0,1,0,1,1,0,1,0,1],
+      [1,1,1,0,1,0,1,0,0,0,0,1],
+      [1,0,0,0,0,0,1,0,1,1,0,1],
+      [1,0,1,1,1,1,1,0,0,0,3,1],
+      [1,1,1,1,1,1,1,1,1,1,1,1],
+    ]
+  }
+];
+
+let currentLevel = 0;
+let grid = [];
+let rows = 0, cols = 0;
+let cellSize = 0;
+let playerPos = { r: 0, c: 0 };
+let startPos = { r: 0, c: 0 };
+let endPos = { r: 0, c: 0 };
+let sequence = [];
+let isRunning = false;
+let trail = [];
+
+function initLevelSelect() {
+  const container = document.getElementById('levelSelect');
+  container.innerHTML = '';
+  levels.forEach((lv, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'level-btn' + (i === currentLevel ? ' active' : '');
+    btn.textContent = lv.name;
+    btn.onclick = () => { currentLevel = i; loadLevel(); };
+    container.appendChild(btn);
+  });
+}
+
+function loadLevel() {
+  const lv = levels[currentLevel];
+  grid = lv.grid.map(row => [...row]);
+  rows = grid.length;
+  cols = grid[0].length;
+  cellSize = Math.min(400 / cols, 400 / rows);
+  canvas.width = cols * cellSize;
+  canvas.height = rows * cellSize;
+
+  startPos = { r: 0, c: 0 };
+  endPos = { r: 0, c: 0 };
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (grid[r][c] === 2) { startPos = { r, c }; grid[r][c] = 0; }
+      if (grid[r][c] === 3) { endPos = { r, c }; grid[r][c] = 0; }
+    }
+  }
+  playerPos = { ...startPos };
+  sequence = [];
+  trail = [];
+  isRunning = false;
+  updateUI();
+  draw();
+  initLevelSelect();
+  document.getElementById('levelLabel').textContent = lv.name;
+  hideMessage();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = c * cellSize;
+      const y = r * cellSize;
+
+      if (grid[r][c] === 1) {
+        ctx.fillStyle = '#2c2c54';
+        ctx.fillRect(x, y, cellSize, cellSize);
+        ctx.fillStyle = '#3d3d6b';
+        ctx.fillRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
+      } else {
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(x, y, cellSize, cellSize);
+      }
+    }
+  }
+
+  trail.forEach((pos, i) => {
+    const x = pos.c * cellSize + cellSize / 2;
+    const y = pos.r * cellSize + cellSize / 2;
+    const alpha = 0.15 + 0.1 * (i / trail.length);
+    ctx.beginPath();
+    ctx.arc(x, y, cellSize * 0.15, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 210, 0, ${alpha})`;
+    ctx.fill();
+  });
+
+  const sx = startPos.c * cellSize;
+  const sy = startPos.r * cellSize;
+  ctx.fillStyle = 'rgba(67, 233, 123, 0.25)';
+  ctx.fillRect(sx + 4, sy + 4, cellSize - 8, cellSize - 8);
+  ctx.strokeStyle = '#43e97b';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(sx + 4, sy + 4, cellSize - 8, cellSize - 8);
+  ctx.fillStyle = '#43e97b';
+  ctx.font = `bold ${cellSize * 0.3}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('S', sx + cellSize / 2, sy + cellSize / 2);
+
+  const ex = endPos.c * cellSize;
+  const ey = endPos.r * cellSize;
+  ctx.fillStyle = 'rgba(255, 71, 87, 0.25)';
+  ctx.fillRect(ex + 4, ey + 4, cellSize - 8, cellSize - 8);
+  ctx.strokeStyle = '#ff4757';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(ex + 4, ey + 4, cellSize - 8, cellSize - 8);
+  ctx.fillStyle = '#ff4757';
+  ctx.fillText('E', ex + cellSize / 2, ey + cellSize / 2);
+
+  const px = playerPos.c * cellSize + cellSize / 2;
+  const py = playerPos.r * cellSize + cellSize / 2;
+  const radius = cellSize * 0.32;
+
+  const glow = ctx.createRadialGradient(px, py, radius * 0.5, px, py, radius * 2);
+  glow.addColorStop(0, 'rgba(255, 210, 0, 0.3)');
+  glow.addColorStop(1, 'rgba(255, 210, 0, 0)');
+  ctx.beginPath();
+  ctx.arc(px, py, radius * 2, 0, Math.PI * 2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(px, py, radius, 0, Math.PI * 2);
+  const grad = ctx.createRadialGradient(px - radius * 0.3, py - radius * 0.3, 0, px, py, radius);
+  grad.addColorStop(0, '#ffe066');
+  grad.addColorStop(1, '#f7971e');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = '#ffd200';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  ctx.arc(px - radius * 0.25, py - radius * 0.15, radius * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(px + radius * 0.25, py - radius * 0.15, radius * 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(px, py + radius * 0.1, radius * 0.2, 0.1 * Math.PI, 0.9 * Math.PI);
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+}
+
+function addDirection(dir) {
+  if (isRunning) return;
+  sequence.push(dir);
+  updateUI();
+}
+
+function removeDirection(index) {
+  if (isRunning) return;
+  sequence.splice(index, 1);
+  updateUI();
+}
+
+function clearSequence() {
+  if (isRunning) return;
+  sequence = [];
+  updateUI();
+}
+
+function resetLevel() {
+  if (isRunning) return;
+  playerPos = { ...startPos };
+  trail = [];
+  sequence = [];
+  updateUI();
+  draw();
+  hideMessage();
+}
+
+function updateUI() {
+  const area = document.getElementById('sequenceArea');
+  document.getElementById('stepLabel').textContent = `步数: ${sequence.length}`;
+
+  if (sequence.length === 0) {
+    area.innerHTML = '<span style="color:#555;font-size:13px;">点击下方方向按钮添加指令</span>';
+    return;
+  }
+
+  const arrows = { up: '↑', down: '↓', left: '←', right: '→' };
+  area.innerHTML = sequence.map((dir, i) =>
+    `<div class="seq-item ${dir}" onclick="removeDirection(${i})">
+      ${arrows[dir]}
+      <span class="step-num">${i + 1}</span>
+      <button class="remove-btn">×</button>
+    </div>`
+  ).join('');
+}
+
+function showMessage(text, type) {
+  const msg = document.getElementById('message');
+  msg.textContent = text;
+  msg.className = 'message ' + type;
+}
+
+function hideMessage() {
+  const msg = document.getElementById('message');
+  msg.className = 'message';
+}
+
+async function runSequence() {
+  if (isRunning || sequence.length === 0) return;
+  isRunning = true;
+  hideMessage();
+
+  playerPos = { ...startPos };
+  trail = [{ ...playerPos }];
+  draw();
+
+  const dirMap = {
+    up:    { dr: -1, dc: 0 },
+    down:  { dr: 1,  dc: 0 },
+    left:  { dr: 0,  dc: -1 },
+    right: { dr: 0,  dc: 1 },
+  };
+
+  let hitWall = false;
+
+  for (let i = 0; i < sequence.length; i++) {
+    const dir = sequence[i];
+    const { dr, dc } = dirMap[dir];
+    const nr = playerPos.r + dr;
+    const nc = playerPos.c + dc;
+
+    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || grid[nr][nc] === 1) {
+      hitWall = true;
+      canvas.style.transform = 'translateX(4px)';
+      await sleep(50);
+      canvas.style.transform = 'translateX(-4px)';
+      await sleep(50);
+      canvas.style.transform = 'translateX(2px)';
+      await sleep(50);
+      canvas.style.transform = '';
+      showMessage(`撞墙了！第 ${i + 1} 步方向无效`, 'fail');
+      break;
+    }
+
+    playerPos = { r: nr, c: nc };
+    trail.push({ ...playerPos });
+    draw();
+    await sleep(250);
+
+    if (nr === endPos.r && nc === endPos.c) {
+      showMessage('恭喜通关！', 'win');
+      break;
+    }
+  }
+
+  if (!hitWall && !(playerPos.r === endPos.r && playerPos.c === endPos.c)) {
+    showMessage('未到达终点，请调整方向序列', 'fail');
+  }
+
+  isRunning = false;
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+loadLevel();
+</script>
+</body>
+</html>

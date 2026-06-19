@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>迷宫方向排列游戏</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -219,6 +219,63 @@
     font-weight: bold;
   }
   .hint { color: #888; font-size: 12px; margin-top: 8px; text-align: center; }
+
+  /* 防止双击缩放 */
+  button, .seq-item, .level-btn, .dir-btn, .action-btn {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 移动端适配 */
+  @media (max-width: 768px) {
+    body { padding: 12px; }
+    h1 { font-size: 22px; }
+    .subtitle { font-size: 13px; margin-bottom: 10px; }
+    .back-link { margin-bottom: 10px; }
+    .game-container {
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+    }
+    .maze-panel {
+      padding: 12px;
+      width: 100%;
+    }
+    .maze-panel canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+    .control-panel {
+      min-width: 0;
+      width: 100%;
+      padding: 14px;
+    }
+    .dir-buttons {
+      grid-template-columns: repeat(3, 54px);
+      grid-template-rows: repeat(3, 54px);
+      gap: 5px;
+    }
+    .dir-btn { font-size: 20px; }
+    .level-select { gap: 4px; }
+    .level-btn { padding: 5px 10px; font-size: 12px; }
+    .action-btn { padding: 10px 0; font-size: 13px; }
+    .seq-item { width: 32px; height: 32px; font-size: 14px; }
+  }
+
+  @media (max-width: 380px) {
+    body { padding: 8px; }
+    h1 { font-size: 18px; }
+    .maze-panel { padding: 8px; }
+    .control-panel { padding: 10px; }
+    .dir-buttons {
+      grid-template-columns: repeat(3, 48px);
+      grid-template-rows: repeat(3, 48px);
+      gap: 4px;
+    }
+    .dir-btn { font-size: 18px; }
+    .seq-item { width: 28px; height: 28px; font-size: 12px; }
+    .seq-item .step-num { font-size: 9px; bottom: -12px; }
+  }
 </style>
 </head>
 <body>
@@ -375,7 +432,10 @@ function loadLevel() {
   grid = lv.grid.map(row => [...row]);
   rows = grid.length;
   cols = grid[0].length;
-  cellSize = Math.min(400 / cols, 400 / rows);
+
+  // 根据屏幕宽度自适应 canvas 尺寸
+  const maxWidth = Math.min(400, window.innerWidth - 64);
+  cellSize = Math.min(maxWidth / cols, maxWidth / rows);
   canvas.width = cols * cellSize;
   canvas.height = rows * cellSize;
 
@@ -606,6 +666,20 @@ function sleep(ms) {
 }
 
 loadLevel();
+
+// 窗口大小变化时重新适配 canvas
+window.addEventListener('resize', () => {
+  const maxWidth = Math.min(400, window.innerWidth - 64);
+  cellSize = Math.min(maxWidth / cols, maxWidth / rows);
+  canvas.width = cols * cellSize;
+  canvas.height = rows * cellSize;
+  draw();
+});
+
+// 防止双击缩放（兜底）
+document.addEventListener('dblclick', function(e) {
+  e.preventDefault();
+}, { passive: false });
 </script>
 </body>
 </html>

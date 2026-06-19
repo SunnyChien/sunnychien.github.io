@@ -6,73 +6,266 @@
 <title>迷宫方向排列游戏</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* 竖屏时显示旋转提示 */
+  .rotate-hint {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #0f0c29;
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #ffd200;
+    font-size: 18px;
+    text-align: center;
+    gap: 16px;
+  }
+  .rotate-hint .rotate-icon {
+    font-size: 48px;
+    animation: rotateAnim 1.5s ease-in-out infinite;
+  }
+  @keyframes rotateAnim {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(90deg); }
+  }
+  @media (orientation: portrait) and (max-width: 1024px) {
+    .rotate-hint { display: flex; }
+    body > *:not(.rotate-hint) { display: none !important; }
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
   body {
     font-family: 'Segoe UI', sans-serif;
     background: #0f0c29;
     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     color: #fff;
-    padding: 20px;
   }
-  h1 {
-    font-size: 28px;
-    margin-bottom: 6px;
+
+  /* 顶部栏 */
+  .top-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+  .top-bar h1 {
+    font-size: 18px;
     background: linear-gradient(90deg, #f7971e, #ffd200);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    white-space: nowrap;
   }
-  .subtitle { color: #aaa; font-size: 14px; margin-bottom: 16px; }
+  .top-bar .subtitle { color: #aaa; font-size: 12px; white-space: nowrap; }
   .back-link {
     color: #aaa;
-    font-size: 14px;
-    margin-bottom: 16px;
+    font-size: 13px;
     text-decoration: none;
+    white-space: nowrap;
   }
   .back-link:hover { color: #ffd200; }
+  .level-select-btn {
+    padding: 4px 14px;
+    border: 2px solid rgba(255,255,255,0.2);
+    background: transparent;
+    color: #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .level-select-btn:hover { border-color: #ffd200; color: #ffd200; }
+  .level-select-btn .current-level { color: #ffd200; font-weight: bold; }
+  .top-bar-spacer { flex: 1; }
+
+  /* 主游戏区 - 横向填满 */
   .game-container {
     display: flex;
-    gap: 30px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 12px;
+    padding: 0 12px 12px 12px;
+    height: calc(100vh - 44px);
+    overflow: hidden;
   }
+
+  /* 左侧迷宫面板 - 占据更多空间 */
   .maze-panel {
     background: rgba(255,255,255,0.05);
     border-radius: 16px;
-    padding: 20px;
+    padding: 12px;
     border: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 3 1 0;
+    height: 100%;
+    min-width: 0;
   }
   canvas {
     display: block;
     border-radius: 8px;
   }
+
+  /* 右侧答题面板 - 紧凑但按钮大 */
   .control-panel {
     background: rgba(255,255,255,0.05);
     border-radius: 16px;
-    padding: 20px;
+    padding: 14px;
     border: 1px solid rgba(255,255,255,0.1);
-    min-width: 260px;
+    flex: 2 1 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    height: 100%;
+    max-width: 400px;
   }
   .control-panel h2 {
-    font-size: 16px;
-    margin-bottom: 12px;
+    font-size: 14px;
+    margin-bottom: 8px;
     color: #ffd200;
+    flex-shrink: 0;
   }
+
+  .level-info {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #ccc;
+    flex-shrink: 0;
+  }
+  .level-info span { background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 6px; }
+
+  /* 插入模式指示 */
+  .insert-mode-indicator {
+    display: none;
+    background: rgba(67, 233, 123, 0.15);
+    border: 1px solid #43e97b;
+    border-radius: 8px;
+    padding: 4px 10px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #43e97b;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .insert-mode-indicator.show { display: block; }
+  .insert-mode-indicator .cancel-insert {
+    color: #ff4757;
+    cursor: pointer;
+    margin-left: 8px;
+    text-decoration: underline;
+  }
+
+  /* 序列区域 - 可滚动，固定高度 */
+  .sequence-area {
+    background: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    padding: 12px;
+    padding-bottom: 24px;
+    min-height: 50px;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+    align-content: flex-start;
+  }
+
+  .seq-item {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: #fff;
+    font-weight: bold;
+    position: relative;
+    animation: popIn 0.2s ease;
+    flex-shrink: 0;
+  }
+  .seq-item .step-num {
+    position: absolute;
+    bottom: -14px;
+    font-size: 10px;
+    color: #888;
+    font-weight: normal;
+  }
+  .seq-item.up    { background: linear-gradient(135deg, #667eea, #764ba2); }
+  .seq-item.down  { background: linear-gradient(135deg, #f093fb, #f5576c); }
+  .seq-item.left  { background: linear-gradient(135deg, #4facfe, #00f2fe); }
+  .seq-item.right { background: linear-gradient(135deg, #43e97b, #38f9d7); }
+  .seq-item .remove-btn {
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 18px; height: 18px;
+    background: #ff4757;
+    border-radius: 50%;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    color: #fff;
+    line-height: 1;
+  }
+  .seq-item .insert-btn {
+    position: absolute;
+    bottom: -6px; left: 50%;
+    transform: translateX(-50%);
+    width: 18px; height: 18px;
+    background: #43e97b;
+    border-radius: 50%;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    color: #fff;
+    line-height: 1;
+    z-index: 2;
+  }
+  .seq-item .insert-btn:hover { background: #38f9d7; }
+  .seq-item.error {
+    background: #ff4757 !important;
+    animation: errorPulse 0.5s ease infinite alternate;
+    box-shadow: 0 0 10px rgba(255, 71, 87, 0.6);
+  }
+  @keyframes errorPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.15); }
+  }
+  @keyframes popIn {
+    from { transform: scale(0); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  /* 方向按钮 */
   .dir-buttons {
     display: grid;
     grid-template-columns: repeat(3, 60px);
     grid-template-rows: repeat(3, 60px);
     gap: 6px;
     justify-content: center;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
   }
   .dir-btn {
     border: none;
     border-radius: 12px;
-    font-size: 22px;
+    font-size: 26px;
     cursor: pointer;
     transition: all 0.15s;
     display: flex;
@@ -90,72 +283,18 @@
   .dir-btn.placeholder { background: transparent; cursor: default; }
   .dir-btn.placeholder:hover { transform: none; }
 
-  .sequence-area {
-    background: rgba(0,0,0,0.3);
-    border-radius: 12px;
-    padding: 12px;
-    padding-bottom: 20px;
-    min-height: 60px;
-    margin-bottom: 12px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-  }
-  .seq-item {
-    width: 36px; height: 36px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 16px;
-    color: #fff;
-    font-weight: bold;
-    position: relative;
-    animation: popIn 0.2s ease;
-    flex-direction: column;
-  }
-  .seq-item .step-num {
-    position: absolute;
-    bottom: -14px;
-    font-size: 10px;
-    color: #888;
-    font-weight: normal;
-  }
-  .seq-item.up    { background: linear-gradient(135deg, #667eea, #764ba2); }
-  .seq-item.down  { background: linear-gradient(135deg, #f093fb, #f5576c); }
-  .seq-item.left  { background: linear-gradient(135deg, #4facfe, #00f2fe); }
-  .seq-item.right { background: linear-gradient(135deg, #43e97b, #38f9d7); }
-  .seq-item .remove-btn {
-    position: absolute;
-    top: -6px; right: -6px;
-    width: 16px; height: 16px;
-    background: #ff4757;
-    border-radius: 50%;
-    font-size: 10px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    color: #fff;
-    line-height: 1;
-  }
-  @keyframes popIn {
-    from { transform: scale(0); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
-  }
-
+  /* 操作按钮 */
   .action-buttons {
     display: flex;
-    gap: 8px;
+    gap: 6px;
+    flex-shrink: 0;
   }
   .action-btn {
     flex: 1;
-    padding: 10px 0;
+    padding: 8px 0;
     border: none;
-    border-radius: 10px;
-    font-size: 14px;
+    border-radius: 8px;
+    font-size: 13px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.15s;
@@ -164,26 +303,17 @@
   .action-btn:hover { transform: translateY(-2px); }
   .action-btn:active { transform: translateY(0); }
   .action-btn.run   { background: linear-gradient(135deg, #f7971e, #ffd200); color: #333; }
-  .action-btn.clear { background: linear-gradient(135deg, #636363, #a2a2a2); }
   .action-btn.reset { background: linear-gradient(135deg, #ff416c, #ff4b2b); }
 
-  .level-info {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
-    font-size: 13px;
-    color: #ccc;
-  }
-  .level-info span { background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 6px; }
-
   .message {
-    margin-top: 12px;
-    padding: 10px 16px;
-    border-radius: 10px;
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
     font-weight: bold;
     text-align: center;
-    font-size: 14px;
+    font-size: 13px;
     display: none;
+    flex-shrink: 0;
   }
   .message.win {
     display: block;
@@ -194,97 +324,277 @@
     display: block;
     background: linear-gradient(135deg, #ff416c, #ff4b2b);
   }
-  .level-select {
-    display: flex;
-    gap: 6px;
+
+  .hint { color: #888; font-size: 11px; margin-top: 6px; text-align: center; flex-shrink: 0; }
+
+  /* 关卡选择弹窗 */
+  .level-modal .modal-content {
+    max-width: 420px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 30px 28px;
+    text-align: left;
+  }
+  .level-modal .modal-content h2 {
+    text-align: center;
     margin-bottom: 16px;
-    flex-wrap: wrap;
-    justify-content: center;
   }
-  .level-btn {
-    padding: 6px 14px;
-    border: 2px solid rgba(255,255,255,0.2);
-    background: transparent;
-    color: #ccc;
-    border-radius: 8px;
+  .level-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .level-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
     cursor: pointer;
-    font-size: 13px;
     transition: all 0.15s;
+    background: rgba(255,255,255,0.03);
   }
-  .level-btn:hover { border-color: #ffd200; color: #ffd200; }
-  .level-btn.active {
+  .level-list-item:hover { border-color: #ffd200; background: rgba(255,255,255,0.06); }
+  .level-list-item.active {
+    border-color: #ffd200;
+    background: rgba(247, 151, 30, 0.15);
+  }
+  .level-list-item .level-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .level-list-item.active .level-num {
     background: linear-gradient(135deg, #f7971e, #ffd200);
     color: #333;
-    border-color: transparent;
-    font-weight: bold;
   }
-  .hint { color: #888; font-size: 12px; margin-top: 8px; text-align: center; }
+  .level-list-item .level-name {
+    font-size: 14px;
+    color: #ccc;
+  }
+  .level-list-item.active .level-name { color: #ffd200; font-weight: bold; }
+  .level-status {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  .level-status.passed {
+    background: rgba(67, 233, 123, 0.2);
+    color: #43e97b;
+  }
+  .level-status.unpassed {
+    background: rgba(255, 255, 255, 0.06);
+    color: #666;
+  }
+  .level-modal-close {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #636363, #a2a2a2);
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .level-modal-close:hover { transform: translateY(-2px); }
+
+  /* 难度等级列表 */
+  .diff-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .diff-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: rgba(255,255,255,0.03);
+  }
+  .diff-item:hover { border-color: #ffd200; background: rgba(255,255,255,0.06); }
+  .diff-item.active { border-color: #ffd200; background: rgba(247, 151, 30, 0.15); }
+  .diff-item.locked {
+    cursor: default;
+    opacity: 0.5;
+  }
+  .diff-item.locked:hover { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); }
+  .diff-item .diff-num {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .diff-item.active .diff-num {
+    background: linear-gradient(135deg, #f7971e, #ffd200);
+    color: #333;
+  }
+  .diff-item .diff-info { flex: 1; }
+  .diff-item .diff-name { font-size: 14px; color: #ccc; }
+  .diff-item.active .diff-name { color: #ffd200; font-weight: bold; }
+  .diff-item .diff-desc { font-size: 11px; color: #888; margin-top: 2px; }
+  .diff-item .diff-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .diff-item .diff-badge.playable {
+    background: rgba(67, 233, 123, 0.2);
+    color: #43e97b;
+  }
+  .diff-item .diff-badge.coming {
+    background: rgba(255, 255, 255, 0.1);
+    color: #888;
+  }
+  .level-list-back {
+    color: #ffd200;
+    font-size: 13px;
+    cursor: pointer;
+    margin-bottom: 10px;
+    padding: 4px 0;
+  }
+  .level-list-back:hover { text-decoration: underline; }
+
+  /* 通关成功模态弹窗 */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-content {
+    background: linear-gradient(135deg, #1a1a2e, #302b63);
+    border: 2px solid #ffd200;
+    border-radius: 20px;
+    padding: 40px 36px;
+    text-align: center;
+    max-width: 340px;
+    width: 90%;
+    animation: modalPop 0.4s ease;
+  }
+  @keyframes modalPop {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .modal-content .trophy {
+    font-size: 64px;
+    margin-bottom: 12px;
+  }
+  .modal-content h2 {
+    font-size: 24px;
+    background: linear-gradient(90deg, #f7971e, #ffd200);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .modal-content p {
+    color: #ccc;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+  }
+  .modal-btn {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .modal-btn:hover { transform: translateY(-2px); }
+  .modal-btn.next {
+    background: linear-gradient(135deg, #f7971e, #ffd200);
+    color: #333;
+  }
+  .modal-btn.replay {
+    background: linear-gradient(135deg, #636363, #a2a2a2);
+    color: #fff;
+  }
 
   /* 防止双击缩放 */
-  button, .seq-item, .level-btn, .dir-btn, .action-btn {
+  button, .seq-item, .dir-btn, .action-btn {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
-  }
-
-  /* 移动端适配 */
-  @media (max-width: 768px) {
-    body { padding: 12px; }
-    h1 { font-size: 22px; }
-    .subtitle { font-size: 13px; margin-bottom: 10px; }
-    .back-link { margin-bottom: 10px; }
-    .game-container {
-      flex-direction: column;
-      gap: 16px;
-      width: 100%;
-    }
-    .maze-panel {
-      padding: 12px;
-      width: 100%;
-    }
-    .maze-panel canvas {
-      width: 100% !important;
-      height: auto !important;
-    }
-    .control-panel {
-      min-width: 0;
-      width: 100%;
-      padding: 14px;
-    }
-    .dir-buttons {
-      grid-template-columns: repeat(3, 54px);
-      grid-template-rows: repeat(3, 54px);
-      gap: 5px;
-    }
-    .dir-btn { font-size: 20px; }
-    .level-select { gap: 4px; }
-    .level-btn { padding: 5px 10px; font-size: 12px; }
-    .action-btn { padding: 10px 0; font-size: 13px; }
-    .seq-item { width: 32px; height: 32px; font-size: 14px; }
-  }
-
-  @media (max-width: 380px) {
-    body { padding: 8px; }
-    h1 { font-size: 18px; }
-    .maze-panel { padding: 8px; }
-    .control-panel { padding: 10px; }
-    .dir-buttons {
-      grid-template-columns: repeat(3, 48px);
-      grid-template-rows: repeat(3, 48px);
-      gap: 4px;
-    }
-    .dir-btn { font-size: 18px; }
-    .seq-item { width: 28px; height: 28px; font-size: 12px; }
-    .seq-item .step-num { font-size: 9px; bottom: -12px; }
   }
 </style>
 </head>
 <body>
 
-<h1>迷宫方向排列</h1>
-<p class="subtitle">排列方向指令，引导角色到达终点</p>
-<a class="back-link" href="index.html">← 返回计划表</a>
+<!-- 竖屏旋转提示 -->
+<div class="rotate-hint">
+  <div class="rotate-icon">📱</div>
+  <div>请旋转设备至横屏模式</div>
+</div>
 
-<div class="level-select" id="levelSelect"></div>
+<!-- 顶部栏 -->
+<div class="top-bar">
+  <h1>迷宫方向排列</h1>
+  <span class="subtitle">排列方向指令，引导角色到达终点</span>
+  <div class="top-bar-spacer"></div>
+  <a class="back-link" href="index.html">← 返回</a>
+  <button class="level-select-btn" id="levelSelectBtn" onclick="openLevelModal()">
+    选择关卡：<span class="current-level" id="currentLevelName">关卡 1 - 初识</span>
+  </button>
+</div>
+
+<!-- 关卡选择弹窗 -->
+<div class="modal-overlay level-modal" id="levelModal">
+  <div class="modal-content">
+    <h2 id="levelModalTitle">选择难度</h2>
+    <div id="difficultyList" class="diff-list"></div>
+    <div id="levelListContainer" style="display:none;">
+      <div class="level-list-back" onclick="showDifficultyList()">← 返回难度选择</div>
+      <div class="level-list" id="levelList"></div>
+    </div>
+    <button class="level-modal-close" onclick="closeLevelModal()">关闭</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="winModal">
+  <div class="modal-content">
+    <div class="trophy">🏆</div>
+    <h2>通关成功！</h2>
+    <p id="winMessage">恭喜你完成了本关！</p>
+    <div class="modal-buttons">
+      <button class="modal-btn replay" onclick="closeWinModal(); resetLevel();">再玩一次</button>
+      <button class="modal-btn next" id="nextLevelBtn" onclick="goNextLevel()">下一关</button>
+    </div>
+  </div>
+</div>
 
 <div class="game-container">
   <div class="maze-panel">
@@ -297,6 +607,10 @@
     </div>
 
     <h2>排列方向</h2>
+    <div class="insert-mode-indicator" id="insertIndicator">
+      插入模式：点击方向按钮在第 <span id="insertPos"></span> 步后插入
+      <span class="cancel-insert" onclick="cancelInsert()">取消</span>
+    </div>
     <div class="sequence-area" id="sequenceArea">
       <span style="color:#555;font-size:13px;">点击下方方向按钮添加指令</span>
     </div>
@@ -312,99 +626,329 @@
 
     <div class="action-buttons">
       <button class="action-btn run" onclick="runSequence()">执行</button>
-      <button class="action-btn clear" onclick="clearSequence()">清空</button>
       <button class="action-btn reset" onclick="resetLevel()">重置</button>
     </div>
 
     <div class="message" id="message"></div>
-    <p class="hint">提示：点击已添加的指令可删除</p>
+    <p class="hint">提示：点击 × 删除指令，点击 + 在该位置后插入指令</p>
   </div>
 </div>
 
+<script src="supabase-config.js"></script>
+<script src="supabase-loader.js"></script>
 <script>
+// 等待 Supabase SDK 加载完成
+window.supabaseConfigReady && window.supabaseConfigReady.catch(() => {});
+
+const MAZE_TABLE = "maze_game_progress";
+const mazeStorageKey = "maze-game-progress";
+
+// 本地进度缓存: { "0-0": { passed: true, minRuns: 5 }, ... }
+let levelProgress = {};
+
+function isMazeSupabaseReady() {
+  return typeof isSupabaseConfigured === "function" &&
+    isSupabaseConfigured() &&
+    typeof window.supabaseClient !== "undefined" &&
+    window.supabaseClient !== null;
+}
+
+function progressKey(di, li) { return `${di}-${li}`; }
+
+function loadLocalProgress() {
+  try {
+    const raw = localStorage.getItem(mazeStorageKey);
+    if (raw) levelProgress = JSON.parse(raw);
+  } catch (e) { levelProgress = {}; }
+}
+
+function saveLocalProgress() {
+  localStorage.setItem(mazeStorageKey, JSON.stringify(levelProgress));
+}
+
+async function loadRemoteProgress() {
+  if (!isMazeSupabaseReady()) return;
+  try {
+    const { data, error } = await window.supabaseClient
+      .from(MAZE_TABLE)
+      .select("difficulty_index, level_index, passed, min_runs, updated_at");
+    if (error) { console.warn("读取远程进度失败", error); return; }
+    if (!data) return;
+    // 合并远程数据到本地（远程优先）
+    data.forEach(row => {
+      const key = progressKey(row.difficulty_index, row.level_index);
+      const local = levelProgress[key];
+      if (!local || (row.updated_at && (!local.updatedAt || new Date(row.updated_at).getTime() > local.updatedAt))) {
+        levelProgress[key] = {
+          passed: row.passed,
+          minRuns: row.min_runs,
+          updatedAt: new Date(row.updated_at).getTime()
+        };
+      }
+    });
+    saveLocalProgress();
+  } catch (e) { console.warn("加载远程进度异常", e); }
+}
+
+async function saveLevelProgress(di, li, passed, runCount) {
+  const key = progressKey(di, li);
+  const existing = levelProgress[key];
+  const minRuns = existing && existing.minRuns != null
+    ? Math.min(existing.minRuns, runCount)
+    : runCount;
+
+  levelProgress[key] = {
+    passed: passed || (existing && existing.passed) || false,
+    minRuns,
+    updatedAt: Date.now()
+  };
+  saveLocalProgress();
+
+  // 异步保存到远程
+  if (isMazeSupabaseReady()) {
+    try {
+      await window.supabaseClient
+        .from(MAZE_TABLE)
+        .upsert({
+          difficulty_index: di,
+          level_index: li,
+          passed: levelProgress[key].passed,
+          min_runs: minRuns,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "difficulty_index,level_index" });
+    } catch (e) { console.warn("保存远程进度失败", e); }
+  }
+}
+
+function getLevelProgress(di, li) {
+  return levelProgress[progressKey(di, li)] || null;
+}
+
+// 初始化加载
+loadLocalProgress();
+loadRemoteProgress();
+
 const canvas = document.getElementById('mazeCanvas');
 const ctx = canvas.getContext('2d');
 
-// 关卡数据：1=墙, 0=路, 2=起点, 3=终点
-const levels = [
+// 难度等级定义
+const difficulties = [
   {
-    name: '关卡 1 - 初识',
-    grid: [
-      [1,1,1,1,1,1,1,1],
-      [1,2,0,0,1,0,0,1],
-      [1,0,1,0,1,0,1,1],
-      [1,0,1,0,0,0,0,1],
-      [1,0,1,1,1,1,0,1],
-      [1,0,0,0,0,1,0,1],
-      [1,1,1,1,0,0,3,1],
-      [1,1,1,1,1,1,1,1],
+    name: '入门',
+    desc: '上下左右四个方向',
+    available: true,
+    levels: [
+      {
+        name: '第1关 - 初识',
+        grid: [
+          [1,1,1,1,1,1,1,1],
+          [1,2,0,0,1,0,0,1],
+          [1,0,1,0,1,0,1,1],
+          [1,0,1,0,0,0,0,1],
+          [1,0,1,1,1,1,0,1],
+          [1,0,0,0,0,1,0,1],
+          [1,1,1,1,0,0,3,1],
+          [1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第2关 - 拐角',
+        grid: [
+          [1,1,1,1,1,1,1,1],
+          [1,2,0,0,0,0,0,1],
+          [1,1,1,1,1,1,0,1],
+          [1,0,0,0,0,0,0,1],
+          [1,0,1,1,1,1,1,1],
+          [1,0,0,0,0,0,3,1],
+          [1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第3关 - 迂回',
+        grid: [
+          [1,1,1,1,1,1,1,1,1,1],
+          [1,2,0,1,0,0,0,0,0,1],
+          [1,1,0,1,0,1,1,1,0,1],
+          [1,0,0,0,0,0,0,1,0,1],
+          [1,0,1,1,1,1,0,1,0,1],
+          [1,0,1,0,0,0,0,0,0,1],
+          [1,0,1,0,1,1,1,1,0,1],
+          [1,0,0,0,1,0,0,0,0,1],
+          [1,1,1,0,1,0,1,1,3,1],
+          [1,1,1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第4关 - 十字',
+        grid: [
+          [1,1,1,1,1,1,1,1,1],
+          [1,2,0,0,1,0,0,0,1],
+          [1,0,1,0,1,0,1,0,1],
+          [1,0,1,0,0,0,1,0,1],
+          [1,0,1,1,1,1,1,0,1],
+          [1,0,0,0,0,0,0,0,1],
+          [1,1,1,0,1,0,1,1,1],
+          [1,0,0,0,1,0,0,3,1],
+          [1,1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第5关 - 迷途',
+        grid: [
+          [1,1,1,1,1,1,1,1,1,1],
+          [1,2,0,0,0,1,0,0,0,1],
+          [1,1,1,1,0,1,0,1,0,1],
+          [1,0,0,0,0,0,0,1,0,1],
+          [1,0,1,1,1,1,1,1,0,1],
+          [1,0,0,0,0,0,0,0,0,1],
+          [1,1,1,0,1,1,1,1,0,1],
+          [1,0,0,0,1,0,0,0,0,1],
+          [1,0,1,0,0,0,1,1,3,1],
+          [1,1,1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第6关 - 蛇行',
+        grid: [
+          [1,1,1,1,1,1,1,1,1,1],
+          [1,2,0,0,0,0,0,0,0,1],
+          [1,1,1,1,1,1,1,1,0,1],
+          [1,0,0,0,0,0,0,0,0,1],
+          [1,0,1,1,1,1,1,1,1,1],
+          [1,0,0,0,0,0,0,0,0,1],
+          [1,1,1,1,1,1,1,1,0,1],
+          [1,0,0,0,0,0,0,0,0,1],
+          [1,0,1,1,1,1,1,1,1,1],
+          [1,0,0,0,0,0,0,3,0,1],
+          [1,1,1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第7关 - 旋涡',
+        grid: [
+          [1,1,1,1,1,1,1,1,1,1,1,1],
+          [1,2,0,0,1,0,0,0,1,0,0,1],
+          [1,0,1,0,1,0,1,0,0,0,1,1],
+          [1,0,1,0,0,0,1,1,1,0,0,1],
+          [1,0,1,1,1,0,0,0,1,1,0,1],
+          [1,0,0,0,1,1,1,0,0,0,0,1],
+          [1,1,1,0,0,0,1,1,1,1,0,1],
+          [1,0,0,0,1,0,0,0,0,1,0,1],
+          [1,0,1,1,1,1,1,1,0,1,0,1],
+          [1,0,0,0,0,0,0,0,0,0,3,1],
+          [1,1,1,1,1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第8关 - 岔路',
+        grid: [
+          [1,1,1,1,1,1,1,1,1,1,1],
+          [1,2,0,0,0,1,0,0,0,0,1],
+          [1,0,1,1,0,1,0,1,1,0,1],
+          [1,0,0,1,0,0,0,1,0,0,1],
+          [1,1,0,1,1,1,0,1,0,1,1],
+          [1,0,0,0,0,1,0,0,0,0,1],
+          [1,0,1,1,0,1,1,1,1,0,1],
+          [1,0,1,0,0,0,0,0,1,0,1],
+          [1,0,1,0,1,1,1,0,0,0,1],
+          [1,0,0,0,1,0,0,0,1,3,1],
+          [1,1,1,1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第9关 - 迷宫',
+        grid: [
+          [1,1,1,1,1,1,1,1,1,1,1,1],
+          [1,2,1,0,0,0,1,0,0,0,0,1],
+          [1,0,1,0,1,0,0,0,1,1,0,1],
+          [1,0,0,0,1,1,1,0,0,0,0,1],
+          [1,0,1,0,0,0,1,1,1,1,0,1],
+          [1,0,1,1,1,0,0,0,0,1,0,1],
+          [1,0,0,0,1,0,1,1,0,1,0,1],
+          [1,1,1,0,1,0,1,0,0,0,0,1],
+          [1,0,0,0,0,0,1,0,1,1,0,1],
+          [1,0,1,1,1,1,1,0,0,0,3,1],
+          [1,1,1,1,1,1,1,1,1,1,1,1],
+        ]
+      },
+      {
+        name: '第10关 - 终极',
+        grid: [
+          [1,1,1,1,1,1,1,1,1,1,1,1,1],
+          [1,2,0,1,0,0,0,1,0,0,0,0,1],
+          [1,0,0,1,0,1,0,0,0,1,1,0,1],
+          [1,1,0,0,0,1,1,1,0,0,0,0,1],
+          [1,0,0,1,0,0,0,1,1,1,1,0,1],
+          [1,0,1,1,1,1,0,0,0,0,1,0,1],
+          [1,0,0,0,0,1,0,1,1,0,0,0,1],
+          [1,1,1,1,0,0,0,1,0,0,1,1,1],
+          [1,0,0,0,0,1,0,1,0,1,0,0,1],
+          [1,0,1,1,0,1,0,0,0,1,0,1,1],
+          [1,0,0,1,0,0,1,1,0,0,0,0,1],
+          [1,1,1,1,1,1,1,1,1,1,1,3,1],
+          [1,1,1,1,1,1,1,1,1,1,1,1,1],
+        ]
+      }
     ]
   },
   {
-    name: '关卡 2 - 迂回',
-    grid: [
-      [1,1,1,1,1,1,1,1,1,1],
-      [1,2,0,1,0,0,0,0,0,1],
-      [1,1,0,1,0,1,1,1,0,1],
-      [1,0,0,0,0,0,0,1,0,1],
-      [1,0,1,1,1,1,0,1,0,1],
-      [1,0,1,0,0,0,0,0,0,1],
-      [1,0,1,0,1,1,1,1,0,1],
-      [1,0,0,0,1,0,0,0,0,1],
-      [1,1,1,0,1,0,1,1,3,1],
-      [1,1,1,1,1,1,1,1,1,1],
-    ]
+    name: '进阶',
+    desc: '更多方向指令',
+    available: false,
+    levels: []
   },
   {
-    name: '关卡 3 - 迷途',
-    grid: [
-      [1,1,1,1,1,1,1,1,1,1],
-      [1,2,0,0,0,1,0,0,0,1],
-      [1,1,1,1,0,1,0,1,0,1],
-      [1,0,0,0,0,0,0,1,0,1],
-      [1,0,1,1,1,1,1,1,0,1],
-      [1,0,0,0,0,0,0,0,0,1],
-      [1,1,1,0,1,1,1,1,0,1],
-      [1,0,0,0,1,0,0,0,0,1],
-      [1,0,1,0,0,0,1,1,3,1],
-      [1,1,1,1,1,1,1,1,1,1],
-    ]
+    name: '挑战',
+    desc: '复杂迷宫与条件',
+    available: false,
+    levels: []
   },
   {
-    name: '关卡 4 - 旋涡',
-    grid: [
-      [1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,2,0,0,1,0,0,0,1,0,0,1],
-      [1,0,1,0,1,0,1,0,0,0,1,1],
-      [1,0,1,0,0,0,1,1,1,0,0,1],
-      [1,0,1,1,1,0,0,0,1,1,0,1],
-      [1,0,0,0,1,1,1,0,0,0,0,1],
-      [1,1,1,0,0,0,1,1,1,1,0,1],
-      [1,0,0,0,1,0,0,0,0,1,0,1],
-      [1,0,1,1,1,1,1,1,0,1,0,1],
-      [1,0,0,0,0,0,0,0,0,0,3,1],
-      [1,1,1,1,1,1,1,1,1,1,1,1],
-    ]
+    name: '大师',
+    desc: '极限考验',
+    available: false,
+    levels: []
   },
   {
-    name: '关卡 5 - 终极',
-    grid: [
-      [1,1,1,1,1,1,1,1,1,1,1,1],
-      [1,2,1,0,0,0,1,0,0,0,0,1],
-      [1,0,1,0,1,0,0,0,1,1,0,1],
-      [1,0,0,0,1,1,1,0,0,0,0,1],
-      [1,0,1,0,0,0,1,1,1,1,0,1],
-      [1,0,1,1,1,0,0,0,0,1,0,1],
-      [1,0,0,0,1,0,1,1,0,1,0,1],
-      [1,1,1,0,1,0,1,0,0,0,0,1],
-      [1,0,0,0,0,0,1,0,1,1,0,1],
-      [1,0,1,1,1,1,1,0,0,0,3,1],
-      [1,1,1,1,1,1,1,1,1,1,1,1],
-    ]
+    name: '传奇',
+    desc: '终极挑战',
+    available: false,
+    levels: []
+  },
+  {
+    name: '史诗',
+    desc: '超越极限',
+    available: false,
+    levels: []
+  },
+  {
+    name: '神话',
+    desc: '传说中的难度',
+    available: false,
+    levels: []
+  },
+  {
+    name: '深渊',
+    desc: '无尽迷途',
+    available: false,
+    levels: []
+  },
+  {
+    name: '炼狱',
+    desc: '火焰试炼',
+    available: false,
+    levels: []
+  },
+  {
+    name: '永恒',
+    desc: '永恒轮回',
+    available: false,
+    levels: []
   }
 ];
 
-let currentLevel = 0;
+let currentDiff = 0; // 当前难度等级索引
+let currentLevel = 0; // 当前关卡在难度等级内的索引
 let grid = [];
 let rows = 0, cols = 0;
 let cellSize = 0;
@@ -414,30 +958,100 @@ let endPos = { r: 0, c: 0 };
 let sequence = [];
 let isRunning = false;
 let trail = [];
+let insertAfterIndex = -1; // -1 means append mode
+let errorStepIndex = -1; // -1 means no error highlight
+let levelRunCount = 0; // 当前关卡本次执行的累计次数
 
-function initLevelSelect() {
-  const container = document.getElementById('levelSelect');
+function initDiffList() {
+  const container = document.getElementById('difficultyList');
   container.innerHTML = '';
-  levels.forEach((lv, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'level-btn' + (i === currentLevel ? ' active' : '');
-    btn.textContent = lv.name;
-    btn.onclick = () => { currentLevel = i; loadLevel(); };
-    container.appendChild(btn);
+  difficulties.forEach((diff, i) => {
+    const item = document.createElement('div');
+    item.className = 'diff-item' + (i === currentDiff ? ' active' : '') + (!diff.available ? ' locked' : '');
+    const badgeClass = diff.available ? 'playable' : 'coming';
+    let badgeText = diff.available ? `${diff.levels.length}关` : '开发中';
+    if (diff.available) {
+      const passedCount = diff.levels.filter((_, li) => {
+        const p = getLevelProgress(i, li);
+        return p && p.passed;
+      }).length;
+      if (passedCount > 0) badgeText = `${passedCount}/${diff.levels.length}通关`;
+    }
+    item.innerHTML = `
+      <div class="diff-num">${i + 1}</div>
+      <div class="diff-info">
+        <div class="diff-name">${diff.name}</div>
+        <div class="diff-desc">${diff.desc}</div>
+      </div>
+      <span class="diff-badge ${badgeClass}">${badgeText}</span>
+    `;
+    if (diff.available) {
+      item.onclick = () => showLevelList(i);
+    }
+    container.appendChild(item);
   });
 }
 
+function showDifficultyList() {
+  document.getElementById('difficultyList').style.display = '';
+  document.getElementById('levelListContainer').style.display = 'none';
+  document.getElementById('levelModalTitle').textContent = '选择难度';
+  initDiffList();
+}
+
+function showLevelList(diffIndex) {
+  document.getElementById('difficultyList').style.display = 'none';
+  document.getElementById('levelListContainer').style.display = '';
+  document.getElementById('levelModalTitle').textContent = `${difficulties[diffIndex].name} - 选择关卡`;
+
+  const container = document.getElementById('levelList');
+  container.innerHTML = '';
+  const diff = difficulties[diffIndex];
+  diff.levels.forEach((lv, i) => {
+    const item = document.createElement('div');
+    item.className = 'level-list-item' + (diffIndex === currentDiff && i === currentLevel ? ' active' : '');
+    const prog = getLevelProgress(diffIndex, i);
+    const statusHtml = prog && prog.passed
+      ? `<span class="level-status passed">✓ ${prog.minRuns}次</span>`
+      : `<span class="level-status unpassed">未通关</span>`;
+    item.innerHTML = `<div class="level-num">${i + 1}</div><div class="level-name">${lv.name}</div>${statusHtml}`;
+    item.onclick = () => {
+      currentDiff = diffIndex;
+      currentLevel = i;
+      loadLevel();
+      closeLevelModal();
+    };
+    container.appendChild(item);
+  });
+}
+
+function openLevelModal() {
+  showDifficultyList();
+  document.getElementById('levelModal').classList.add('show');
+}
+
+function closeLevelModal() {
+  document.getElementById('levelModal').classList.remove('show');
+}
+
+function calcCanvasSize() {
+  const mazePanel = document.querySelector('.maze-panel');
+  if (!mazePanel) return;
+  const panelRect = mazePanel.getBoundingClientRect();
+  const availW = panelRect.width - 24; // padding
+  const availH = panelRect.height - 24;
+  cellSize = Math.floor(Math.min(availW / cols, availH / rows));
+  cellSize = Math.max(cellSize, 10); // minimum
+  canvas.width = cols * cellSize;
+  canvas.height = rows * cellSize;
+}
+
 function loadLevel() {
-  const lv = levels[currentLevel];
+  const diff = difficulties[currentDiff];
+  const lv = diff.levels[currentLevel];
   grid = lv.grid.map(row => [...row]);
   rows = grid.length;
   cols = grid[0].length;
-
-  // 根据屏幕宽度自适应 canvas 尺寸
-  const maxWidth = Math.min(400, window.innerWidth - 64);
-  cellSize = Math.min(maxWidth / cols, maxWidth / rows);
-  canvas.width = cols * cellSize;
-  canvas.height = rows * cellSize;
 
   startPos = { r: 0, c: 0 };
   endPos = { r: 0, c: 0 };
@@ -451,10 +1065,15 @@ function loadLevel() {
   sequence = [];
   trail = [];
   isRunning = false;
+  levelRunCount = 0;
+  // 延迟计算canvas尺寸，等布局完成
+  requestAnimationFrame(() => {
+    calcCanvasSize();
+    draw();
+  });
   updateUI();
-  draw();
-  initLevelSelect();
-  document.getElementById('levelLabel').textContent = lv.name;
+  document.getElementById('levelLabel').textContent = `${diff.name} · ${lv.name}`;
+  document.getElementById('currentLevelName').textContent = `${diff.name} · ${lv.name}`;
   hideMessage();
 }
 
@@ -550,19 +1169,55 @@ function draw() {
 
 function addDirection(dir) {
   if (isRunning) return;
-  sequence.push(dir);
+  errorStepIndex = -1;
+  if (insertAfterIndex >= 0) {
+    sequence.splice(insertAfterIndex + 1, 0, dir);
+    insertAfterIndex = -1;
+    updateInsertIndicator();
+  } else {
+    sequence.push(dir);
+  }
   updateUI();
 }
 
 function removeDirection(index) {
   if (isRunning) return;
+  errorStepIndex = -1;
   sequence.splice(index, 1);
+  if (insertAfterIndex >= 0 && insertAfterIndex >= sequence.length) {
+    insertAfterIndex = -1;
+    updateInsertIndicator();
+  }
   updateUI();
+}
+
+function enterInsertMode(index) {
+  if (isRunning) return;
+  insertAfterIndex = index;
+  updateInsertIndicator();
+}
+
+function cancelInsert() {
+  insertAfterIndex = -1;
+  updateInsertIndicator();
+}
+
+function updateInsertIndicator() {
+  const indicator = document.getElementById('insertIndicator');
+  const posSpan = document.getElementById('insertPos');
+  if (insertAfterIndex >= 0) {
+    posSpan.textContent = insertAfterIndex + 1;
+    indicator.classList.add('show');
+  } else {
+    indicator.classList.remove('show');
+  }
 }
 
 function clearSequence() {
   if (isRunning) return;
   sequence = [];
+  insertAfterIndex = -1;
+  updateInsertIndicator();
   updateUI();
 }
 
@@ -571,6 +1226,9 @@ function resetLevel() {
   playerPos = { ...startPos };
   trail = [];
   sequence = [];
+  insertAfterIndex = -1;
+  errorStepIndex = -1;
+  updateInsertIndicator();
   updateUI();
   draw();
   hideMessage();
@@ -587,12 +1245,19 @@ function updateUI() {
 
   const arrows = { up: '↑', down: '↓', left: '←', right: '→' };
   area.innerHTML = sequence.map((dir, i) =>
-    `<div class="seq-item ${dir}" onclick="removeDirection(${i})">
+    `<div class="seq-item ${dir}${i === errorStepIndex ? ' error' : ''}">
       ${arrows[dir]}
       <span class="step-num">${i + 1}</span>
-      <button class="remove-btn">×</button>
+      <button class="remove-btn" onclick="removeDirection(${i})">×</button>
+      <button class="insert-btn" onclick="enterInsertMode(${i})">+</button>
     </div>`
   ).join('');
+
+  // 滚动到错误步骤
+  if (errorStepIndex >= 0) {
+    const errorEl = area.querySelector('.seq-item.error');
+    if (errorEl) errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }
 
 function showMessage(text, type) {
@@ -610,6 +1275,9 @@ async function runSequence() {
   if (isRunning || sequence.length === 0) return;
   isRunning = true;
   hideMessage();
+  errorStepIndex = -1;
+  levelRunCount++;
+  updateUI();
 
   playerPos = { ...startPos };
   trail = [{ ...playerPos }];
@@ -632,6 +1300,7 @@ async function runSequence() {
 
     if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || grid[nr][nc] === 1) {
       hitWall = true;
+      errorStepIndex = i;
       canvas.style.transform = 'translateX(4px)';
       await sleep(50);
       canvas.style.transform = 'translateX(-4px)';
@@ -640,6 +1309,7 @@ async function runSequence() {
       await sleep(50);
       canvas.style.transform = '';
       showMessage(`撞墙了！第 ${i + 1} 步方向无效`, 'fail');
+      updateUI();
       break;
     }
 
@@ -650,6 +1320,8 @@ async function runSequence() {
 
     if (nr === endPos.r && nc === endPos.c) {
       showMessage('恭喜通关！', 'win');
+      saveLevelProgress(currentDiff, currentLevel, true, levelRunCount);
+      showWinModal();
       break;
     }
   }
@@ -661,6 +1333,45 @@ async function runSequence() {
   isRunning = false;
 }
 
+function showWinModal() {
+  const modal = document.getElementById('winModal');
+  const msg = document.getElementById('winMessage');
+  const nextBtn = document.getElementById('nextLevelBtn');
+  const diff = difficulties[currentDiff];
+  const isLastLevelInDiff = currentLevel >= diff.levels.length - 1;
+  const isLastDiff = currentDiff >= difficulties.length - 1;
+  const hasNextDiff = !isLastDiff && difficulties[currentDiff + 1].available;
+
+  const lvName = diff.levels[currentLevel].name;
+  msg.textContent = isLastLevelInDiff && !hasNextDiff
+    ? `恭喜！你已通关${diff.name}难度所有关卡！`
+    : `你用 ${sequence.length} 步完成了${lvName}！`;
+  nextBtn.style.display = (isLastLevelInDiff && !hasNextDiff) ? 'none' : '';
+  modal.classList.add('show');
+}
+
+function closeWinModal() {
+  document.getElementById('winModal').classList.remove('show');
+}
+
+function goNextLevel() {
+  closeWinModal();
+  const diff = difficulties[currentDiff];
+  if (currentLevel < diff.levels.length - 1) {
+    currentLevel++;
+  } else {
+    // 尝试进入下一个可用难度
+    for (let i = currentDiff + 1; i < difficulties.length; i++) {
+      if (difficulties[i].available && difficulties[i].levels.length > 0) {
+        currentDiff = i;
+        currentLevel = 0;
+        break;
+      }
+    }
+  }
+  loadLevel();
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -669,10 +1380,7 @@ loadLevel();
 
 // 窗口大小变化时重新适配 canvas
 window.addEventListener('resize', () => {
-  const maxWidth = Math.min(400, window.innerWidth - 64);
-  cellSize = Math.min(maxWidth / cols, maxWidth / rows);
-  canvas.width = cols * cellSize;
-  canvas.height = rows * cellSize;
+  calcCanvasSize();
   draw();
 });
 

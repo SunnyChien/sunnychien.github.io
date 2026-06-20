@@ -2,7 +2,10 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0c29">
 <title>迷宫方向排列游戏</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -26,7 +29,11 @@
     align-items: center;
     gap: 12px;
     padding: 8px 16px;
-    height: 44px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    height: auto;
+    min-height: 44px;
     flex-shrink: 0;
   }
   .top-bar h1 {
@@ -64,8 +71,10 @@
     display: flex;
     gap: 12px;
     padding: 0 12px 12px 12px;
-    height: calc(100vh - 44px);
-    height: calc(100dvh - 44px);
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    height: calc(100dvh - 44px - env(safe-area-inset-top));
     overflow: hidden;
   }
 
@@ -106,7 +115,11 @@
   @media (max-width: 1024px) and (orientation: portrait) {
     .top-bar {
       padding: 4px 10px;
-      height: 36px;
+      padding-top: max(4px, env(safe-area-inset-top));
+      padding-left: max(10px, env(safe-area-inset-left));
+      padding-right: max(10px, env(safe-area-inset-right));
+      height: auto;
+      min-height: 36px;
       gap: 6px;
     }
     .top-bar h1 { font-size: 14px; }
@@ -116,9 +129,12 @@
 
     .game-container {
       flex-direction: column;
-      height: calc(100dvh - 36px);
+      height: calc(100dvh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
       gap: 4px;
       padding: 0 4px 4px 4px;
+      padding-bottom: max(4px, env(safe-area-inset-bottom));
+      padding-left: max(4px, env(safe-area-inset-left));
+      padding-right: max(4px, env(safe-area-inset-right));
       overflow: hidden;
     }
     .maze-panel {
@@ -718,20 +734,22 @@ async function loadRemoteProgress() {
       .from(MAZE_TABLE)
       .select("difficulty_index, level_index, passed, min_runs, updated_at");
     if (error) { console.warn("读取远程进度失败", error); return; }
-    if (!data) return;
-    // 合并远程数据到本地（远程优先）
+    if (!data || data.length === 0) return;
+    // 合并远程数据到本地（取 updated_at 最新的一条，远程优先）
     data.forEach(row => {
       const key = progressKey(row.difficulty_index, row.level_index);
       const local = levelProgress[key];
-      if (!local || (row.updated_at && (!local.updatedAt || new Date(row.updated_at).getTime() > local.updatedAt))) {
+      const remoteTime = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+      if (!local || remoteTime > (local.updatedAt || 0)) {
         levelProgress[key] = {
           passed: row.passed,
           minRuns: row.min_runs,
-          updatedAt: new Date(row.updated_at).getTime()
+          updatedAt: remoteTime
         };
       }
     });
     saveLocalProgress();
+    console.log("远程进度已加载并合并，共", data.length, "条记录");
   } catch (e) { console.warn("加载远程进度异常", e); }
 }
 
@@ -752,15 +770,37 @@ async function saveLevelProgress(di, li, passed, runCount) {
   // 异步保存到远程
   if (isMazeSupabaseReady()) {
     try {
-      await window.supabaseClient
+      // 先查询是否已有记录
+      const { data: existing } = await window.supabaseClient
         .from(MAZE_TABLE)
-        .upsert({
-          difficulty_index: di,
-          level_index: li,
-          passed: levelProgress[key].passed,
-          min_runs: minRuns,
-          updated_at: new Date().toISOString()
-        }, { onConflict: "difficulty_index,level_index" });
+        .select("difficulty_index, level_index, updated_at")
+        .eq("difficulty_index", di)
+        .eq("level_index", li)
+        .maybeSingle();
+
+      if (existing) {
+        // 已有记录，更新
+        await window.supabaseClient
+          .from(MAZE_TABLE)
+          .update({
+            passed: levelProgress[key].passed,
+            min_runs: minRuns,
+            updated_at: new Date().toISOString()
+          })
+          .eq("difficulty_index", di)
+          .eq("level_index", li);
+      } else {
+        // 无记录，插入
+        await window.supabaseClient
+          .from(MAZE_TABLE)
+          .insert({
+            difficulty_index: di,
+            level_index: li,
+            passed: levelProgress[key].passed,
+            min_runs: minRuns,
+            updated_at: new Date().toISOString()
+          });
+      }
     } catch (e) { console.warn("保存远程进度失败", e); }
   }
 }
@@ -771,7 +811,24 @@ function getLevelProgress(di, li) {
 
 // 初始化加载
 loadLocalProgress();
-loadRemoteProgress();
+
+// 等待 Supabase SDK 就绪后再加载远程进度
+(async function initRemoteProgress() {
+  // 等待 supabaseConfigReady 完成
+  if (window.supabaseConfigReady) {
+    try { await window.supabaseConfigReady; } catch (e) {}
+  }
+  // 轮询等待客户端就绪（最多等10秒）
+  for (let i = 0; i < 20; i++) {
+    if (isMazeSupabaseReady()) break;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  if (isMazeSupabaseReady()) {
+    await loadRemoteProgress();
+    // 远程进度加载后刷新关卡选择UI
+    if (typeof renderLevelSelect === "function") renderLevelSelect();
+  }
+})();
 
 const canvas = document.getElementById('mazeCanvas');
 const ctx = canvas.getContext('2d');

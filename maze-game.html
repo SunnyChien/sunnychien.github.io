@@ -164,7 +164,7 @@
     }
     .dir-btn { font-size: 24px; border-radius: 10px; }
     .action-buttons { gap: 4px; }
-    .action-btn { padding: 7px 0; font-size: 13px; }
+    .action-btn { padding: 14px 0; font-size: 22px; }
     .message { padding: 2px 6px; font-size: 10px; }
     .hint { display: none; }
   }
@@ -340,10 +340,10 @@
   }
   .action-btn {
     flex: 1;
-    padding: 8px 0;
+    padding: 16px 0;
     border: none;
     border-radius: 8px;
-    font-size: 13px;
+    font-size: 26px;
     font-weight: bold;
     cursor: pointer;
     transition: all 0.15s;
@@ -776,6 +776,13 @@ loadRemoteProgress();
 const canvas = document.getElementById('mazeCanvas');
 const ctx = canvas.getContext('2d');
 
+// 预加载图片素材（兔子自定义图片）
+const imgRabbit = new Image();
+imgRabbit.src = 'maze-assets/rabbitsunny_head.png';
+let rabbitReady = false;
+imgRabbit.onload = () => { rabbitReady = true; };
+imgRabbit.onerror = () => { rabbitReady = true; };
+
 // 难度等级定义
 const difficulties = [
   {
@@ -1142,29 +1149,27 @@ function draw() {
     }
   }
 
+  // 轨迹点
   trail.forEach((pos, i) => {
     const x = pos.c * cellSize + cellSize / 2;
     const y = pos.r * cellSize + cellSize / 2;
     const alpha = 0.15 + 0.1 * (i / trail.length);
     ctx.beginPath();
-    ctx.arc(x, y, cellSize * 0.15, 0, Math.PI * 2);
+    ctx.arc(x, y, cellSize * 0.12, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(255, 210, 0, ${alpha})`;
     ctx.fill();
   });
 
+  // 起点标记
   const sx = startPos.c * cellSize;
   const sy = startPos.r * cellSize;
-  ctx.fillStyle = 'rgba(67, 233, 123, 0.25)';
-  ctx.fillRect(sx + 4, sy + 4, cellSize - 8, cellSize - 8);
+  ctx.fillStyle = 'rgba(67, 233, 123, 0.2)';
+  ctx.fillRect(sx + 2, sy + 2, cellSize - 4, cellSize - 4);
   ctx.strokeStyle = '#43e97b';
   ctx.lineWidth = 2;
-  ctx.strokeRect(sx + 4, sy + 4, cellSize - 8, cellSize - 8);
-  ctx.fillStyle = '#43e97b';
-  ctx.font = `bold ${cellSize * 0.3}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('S', sx + cellSize / 2, sy + cellSize / 2);
+  ctx.strokeRect(sx + 2, sy + 2, cellSize - 4, cellSize - 4);
 
+  // 终点：胡萝卜 emoji
   const ex = endPos.c * cellSize;
   const ey = endPos.r * cellSize;
   ctx.fillStyle = 'rgba(255, 71, 87, 0.25)';
@@ -1172,44 +1177,37 @@ function draw() {
   ctx.strokeStyle = '#ff4757';
   ctx.lineWidth = 2;
   ctx.strokeRect(ex + 4, ey + 4, cellSize - 8, cellSize - 8);
-  ctx.fillStyle = '#ff4757';
-  ctx.fillText('E', ex + cellSize / 2, ey + cellSize / 2);
+  ctx.font = `${cellSize * 0.7}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🥕', ex + cellSize / 2, ey + cellSize / 2);
 
+  // 兔子角色
   const px = playerPos.c * cellSize + cellSize / 2;
   const py = playerPos.r * cellSize + cellSize / 2;
-  const radius = cellSize * 0.32;
 
-  const glow = ctx.createRadialGradient(px, py, radius * 0.5, px, py, radius * 2);
-  glow.addColorStop(0, 'rgba(255, 210, 0, 0.3)');
+  // 光晕
+  const glow = ctx.createRadialGradient(px, py, cellSize * 0.15, px, py, cellSize * 0.6);
+  glow.addColorStop(0, 'rgba(255, 210, 0, 0.25)');
   glow.addColorStop(1, 'rgba(255, 210, 0, 0)');
   ctx.beginPath();
-  ctx.arc(px, py, radius * 2, 0, Math.PI * 2);
+  ctx.arc(px, py, cellSize * 0.6, 0, Math.PI * 2);
   ctx.fillStyle = glow;
   ctx.fill();
 
-  ctx.beginPath();
-  ctx.arc(px, py, radius, 0, Math.PI * 2);
-  const grad = ctx.createRadialGradient(px - radius * 0.3, py - radius * 0.3, 0, px, py, radius);
-  grad.addColorStop(0, '#ffe066');
-  grad.addColorStop(1, '#f7971e');
-  ctx.fillStyle = grad;
-  ctx.fill();
-  ctx.strokeStyle = '#ffd200';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.fillStyle = '#333';
-  ctx.beginPath();
-  ctx.arc(px - radius * 0.25, py - radius * 0.15, radius * 0.1, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(px + radius * 0.25, py - radius * 0.15, radius * 0.1, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(px, py + radius * 0.1, radius * 0.2, 0.1 * Math.PI, 0.9 * Math.PI);
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
+  if (rabbitReady && imgRabbit.complete) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    const aspect = imgRabbit.naturalWidth / imgRabbit.naturalHeight;
+    const h = cellSize * 0.9;
+    const w = h * aspect;
+    ctx.drawImage(imgRabbit, px - w / 2, py - h / 2, w, h);
+  } else {
+    ctx.font = `${cellSize * 0.75}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🐰', px, py);
+  }
 }
 
 function addDirection(dir) {

@@ -7,43 +7,17 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  /* 竖屏时显示旋转提示 */
-  .rotate-hint {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: #0f0c29;
-    z-index: 9999;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: #ffd200;
-    font-size: 18px;
-    text-align: center;
-    gap: 16px;
-  }
-  .rotate-hint .rotate-icon {
-    font-size: 48px;
-    animation: rotateAnim 1.5s ease-in-out infinite;
-  }
-  @keyframes rotateAnim {
-    0%, 100% { transform: rotate(0deg); }
-    50% { transform: rotate(90deg); }
-  }
-  @media (orientation: portrait) and (max-width: 1024px) {
-    .rotate-hint { display: flex; }
-    body > *:not(.rotate-hint) { display: none !important; }
-  }
-
   html, body {
     height: 100%;
-    overflow: hidden;
   }
   body {
     font-family: 'Segoe UI', sans-serif;
     background: #0f0c29;
     background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
     color: #fff;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
   }
 
   /* 顶部栏 */
@@ -85,16 +59,17 @@
   .level-select-btn .current-level { color: #ffd200; font-weight: bold; }
   .top-bar-spacer { flex: 1; }
 
-  /* 主游戏区 - 横向填满 */
+  /* 主游戏区 - 默认桌面端左右布局 */
   .game-container {
     display: flex;
     gap: 12px;
     padding: 0 12px 12px 12px;
     height: calc(100vh - 44px);
+    height: calc(100dvh - 44px);
     overflow: hidden;
   }
 
-  /* 左侧迷宫面板 - 占据更多空间 */
+  /* 左侧迷宫面板 */
   .maze-panel {
     background: rgba(255,255,255,0.05);
     border-radius: 16px;
@@ -112,7 +87,7 @@
     border-radius: 8px;
   }
 
-  /* 右侧答题面板 - 紧凑但按钮大 */
+  /* 右侧答题面板 */
   .control-panel {
     background: rgba(255,255,255,0.05);
     border-radius: 16px;
@@ -125,6 +100,73 @@
     overflow: hidden;
     height: 100%;
     max-width: 400px;
+  }
+
+  /* 移动端/平板竖屏：上下布局，一屏显示 */
+  @media (max-width: 1024px) and (orientation: portrait) {
+    .top-bar {
+      padding: 4px 10px;
+      height: 36px;
+      gap: 6px;
+    }
+    .top-bar h1 { font-size: 14px; }
+    .top-bar .subtitle { display: none; }
+    .back-link { font-size: 12px; }
+    .level-select-btn { padding: 2px 8px; font-size: 11px; }
+
+    .game-container {
+      flex-direction: column;
+      height: calc(100dvh - 36px);
+      gap: 4px;
+      padding: 0 4px 4px 4px;
+      overflow: hidden;
+    }
+    .maze-panel {
+      flex: none;
+      height: 42%;
+      width: 100%;
+      padding: 4px;
+      border-radius: 10px;
+    }
+    .control-panel {
+      flex: 1;
+      height: auto;
+      max-width: none;
+      width: 100%;
+      min-height: 0;
+      padding: 6px;
+      border-radius: 10px;
+      gap: 0;
+      justify-content: flex-start;
+    }
+    .control-panel h2 { display: none; }
+    .level-info { margin-bottom: 2px; font-size: 10px; gap: 4px; }
+    .level-info span { padding: 1px 5px; }
+    .insert-mode-indicator { padding: 2px 6px; margin-bottom: 2px; font-size: 10px; }
+    .sequence-area {
+      padding: 4px;
+      padding-bottom: 10px;
+      margin-bottom: 2px;
+      gap: 3px;
+      min-height: 24px;
+      flex: 1 1 0;
+      overflow-y: auto;
+    }
+    .seq-item { width: 30px; height: 30px; font-size: 14px; border-radius: 5px; }
+    .seq-item .step-num { bottom: -10px; font-size: 8px; }
+    .seq-item .remove-btn { width: 13px; height: 13px; font-size: 8px; top: -4px; right: -4px; }
+    .seq-item .insert-btn { width: 13px; height: 13px; font-size: 8px; bottom: -4px; }
+    .controls-bottom { gap: 0; }
+    .dir-buttons {
+      grid-template-columns: repeat(3, 50px);
+      grid-template-rows: repeat(3, 50px);
+      gap: 4px;
+    }
+    .dir-btn { font-size: 24px; border-radius: 10px; }
+    .action-buttons { gap: 4px; }
+    .action-btn { padding: 7px 0; font-size: 13px; }
+    .message { padding: 2px 6px; font-size: 10px; }
+    .hint { display: none; }
   }
   .control-panel h2 {
     font-size: 14px;
@@ -252,6 +294,14 @@
     to { transform: scale(1); opacity: 1; }
   }
 
+  /* 方向+操作按钮容器 - 紧密排列 */
+  .controls-bottom {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
   /* 方向按钮 */
   .dir-buttons {
     display: grid;
@@ -259,7 +309,6 @@
     grid-template-rows: repeat(3, 60px);
     gap: 6px;
     justify-content: center;
-    margin-bottom: 10px;
     flex-shrink: 0;
   }
   .dir-btn {
@@ -554,12 +603,6 @@
 </head>
 <body>
 
-<!-- 竖屏旋转提示 -->
-<div class="rotate-hint">
-  <div class="rotate-icon">📱</div>
-  <div>请旋转设备至横屏模式</div>
-</div>
-
 <!-- 顶部栏 -->
 <div class="top-bar">
   <h1>迷宫方向排列</h1>
@@ -615,22 +658,24 @@
       <span style="color:#555;font-size:13px;">点击下方方向按钮添加指令</span>
     </div>
 
-    <div class="dir-buttons">
-      <div class="dir-btn placeholder"></div>
-      <button class="dir-btn up" onclick="addDirection('up')">↑</button>
-      <div class="dir-btn placeholder"></div>
-      <button class="dir-btn left" onclick="addDirection('left')">←</button>
-      <button class="dir-btn down" onclick="addDirection('down')">↓</button>
-      <button class="dir-btn right" onclick="addDirection('right')">→</button>
-    </div>
+    <div class="controls-bottom">
+      <div class="dir-buttons">
+        <div class="dir-btn placeholder"></div>
+        <button class="dir-btn up" onclick="addDirection('up')">↑</button>
+        <div class="dir-btn placeholder"></div>
+        <button class="dir-btn left" onclick="addDirection('left')">←</button>
+        <button class="dir-btn down" onclick="addDirection('down')">↓</button>
+        <button class="dir-btn right" onclick="addDirection('right')">→</button>
+      </div>
 
-    <div class="action-buttons">
-      <button class="action-btn run" onclick="runSequence()">执行</button>
-      <button class="action-btn reset" onclick="resetLevel()">重置</button>
-    </div>
+      <div class="action-buttons">
+        <button class="action-btn run" onclick="runSequence()">执行</button>
+        <button class="action-btn reset" onclick="resetLevel()">重置</button>
+      </div>
 
-    <div class="message" id="message"></div>
-    <p class="hint">提示：点击 × 删除指令，点击 + 在该位置后插入指令</p>
+      <div class="message" id="message"></div>
+      <p class="hint">提示：点击 × 删除指令，点击 + 在该位置后插入指令</p>
+    </div>
   </div>
 </div>
 
